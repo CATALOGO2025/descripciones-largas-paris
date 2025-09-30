@@ -220,7 +220,7 @@ function formatDescripcionHTML(textoPlano) {
     // Forzar '##' a nueva línea si viene pegado
     t = t.replace(/([^\n])##/g, '$1\n##');
     // Negritas con *...*
-    t = t.replace(/\*(.*?)\*/g, '<b>$1</b>');
+    t = t.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
 
     const lines = t.split('\n');
     let out = [];
@@ -230,7 +230,7 @@ function formatDescripcionHTML(textoPlano) {
         // Encabezado "## Título" -> una sola separación antes
         const h = line.match(/^##\s*(.+)/);
         if (h) {
-            const hdr = '<h4 style="margin:0;"><b>' + h[1].trim() + '</b></h4>';
+            const hdr = '<h3 style=\"margin:6px 0 4px 0;\">' + h[1].trim() + '</h3>';
             if (out.length > 0 && out[out.length - 1] !== '<br>') out.push('<br>'); // un solo salto antes del título
             out.push(hdr);
             i++;
@@ -439,19 +439,19 @@ img { max-width: 100%; height: auto; }
 <div class="card">
 <h2>📜 Instrucciones</h2>
 <ul style="line-height:1.7;">
-<li>👨‍💻 <b>Descargar Plantilla:</b> Usa el botón para descargar un Excel preformateado.</li>
-<li>📁 <b>Procesar Excel:</b> Completa los campos requeridos.</li>
-<li>👁️ <b>Previsualizar:</b> Visualizar Tablas muestra resultados.</li>
-<li>⬇️ <b>Exportar:</b> Exportar HTML a Excel descarga resultados.</li>
+<li>👨‍💻 <strong>Descargar Plantilla:</strong> Usa el botón para descargar un Excel preformateado.</li>
+<li>📁 <strong>Procesar Excel:</strong> Completa los campos requeridos.</li>
+<li>👁️ <strong>Previsualizar:</strong> Visualizar Tablas muestra resultados.</li>
+<li>⬇️ <strong>Exportar:</strong> Exportar HTML a Excel descarga resultados.</li>
 </ul>
 <div style="background: #fff9e6; border-left: 6px solid #f5c518; border-top-left-radius: 12px; border-bottom-left-radius: 12px; padding: 20px; margin-bottom: 30px;">
-  <h3 style="margin-top: 0; color: #7d6608;">📌 <b>Directrices</b></h3>
-  <ul style="line-height:1.7; color: #000; margin: 0;"><li><b>Descripción corta:</b> Máximo 160 caracteres.</li>
-<li><b>Descripción larga:</b> Este campo se convierte en texto HTML. Usa palabras *entre asteriscos* para poner en negrita, y ## antes de títulos para destacarlos.</li>
-<li><b>Descripción de la Marca:</b> Usa el archivo "Descripciones Marcas y urls" desde SharePoint.</li>
-<li><b>Imagen de Marca:</b> Agrega el nombre de la imagen más la extensión, Ej. logoBC.png (acepta .jpg, .jpeg, .png, .webp ✅). Debe estar alojada en Filezilla &gt; Carpeta Logos (Máx 60 px de alto)</li>
-<li><b>Video YouTube:</b> Se acepta tanto la URL corta como la larga para incrustar videos.</li>
-<li><b>Descarga de documentos:</b> Selecciona en el Excel el botón que se acomode a tu necesidad más la URL del archivo.</li>
+  <h3 style="margin-top: 0; color: #7d6608;">📌 <strong>Directrices</strong></h3>
+  <ul style="line-height:1.7; color: #000; margin: 0;"><li><strong>Descripción corta:</strong> Máximo 160 caracteres.</li>
+<li><strong>Descripción larga:</strong> Este campo se convierte en texto HTML. Usa palabras *entre asteriscos* para poner en negrita, y ## antes de títulos para destacarlos.</li>
+<li><strong>Descripción de la Marca:</strong> Usa el archivo "Descripciones Marcas y urls" desde SharePoint.</li>
+<li><strong>Imagen de Marca:</strong> Agrega el nombre de la imagen más la extensión, Ej. logoBC.png (acepta .jpg, .jpeg, .png, .webp ✅). Debe estar alojada en Filezilla &gt; Carpeta Logos (Máx 60 px de alto)</li>
+<li><strong>Video YouTube:</strong> Se acepta tanto la URL corta como la larga para incrustar videos.</li>
+<li><strong>Descarga de documentos:</strong> Selecciona en el Excel el botón que se acomode a tu necesidad más la URL del archivo.</li>
 <li>En la plantilla descargada podrás ver las instrucciones en mayor detalle</li></ul>
 </div>
 <button onclick="updateTables()">👁️ Visualizar Tablas</button>
@@ -570,7 +570,7 @@ const cta = metaDescripcion.trim(); // sin fallback
     html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div class='visual-id'>Ficha N° ${index + 1}</div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:8px; margin-top:6px;'>📦 SKU: ${sku}</div>
-<h3 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h3>
+<h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${difBlock1}
@@ -582,8 +582,8 @@ ${botonHTML}${difBlock23}
 <div style='border:1px solid #ddd; border-radius:8px; background:#fff;'>
 <h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center; border-radius:8px 8px 0 0;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
 <table style='width:100%; border-collapse:collapse;'>`;
-    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Material:</b> ${material}</td></tr>`;
-    if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Dimensiones:</b> ${dimensiones}</td></tr>`;
+    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Material:</strong> ${material}</td></tr>`;
+    if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
     html += `</table></div>`;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
@@ -663,7 +663,7 @@ if (dif2 || dif3) {
         </div>`;
     }
     let html = `<div style='margin-bottom:25px;
-<h3 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h3>
+<h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${difBlock1}
@@ -677,8 +677,8 @@ ${difBlock23}
 <h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
 <table style='width:100%; border-collapse:collapse;'>`;
 html = cleanForCSV(html);
-    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Material:</b> ${material}</td></tr>`;
-    if (dimensiones) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Dimensiones:</b> ${dimensiones}</td></tr>`;
+    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Material:</strong> ${material}</td></tr>`;
+    if (dimensiones) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
     html += `</table></div>`;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
