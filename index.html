@@ -217,7 +217,7 @@ function cleanForCSV(html) {
 function formatDescripcionHTML(textoPlano) {
     if (!textoPlano) return '';
     let t = String(textoPlano).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    // Forzar '##' a nueva línea si viene pegado
+    // Mantener regla existente: forzar '##' a nueva línea si viene pegado
     t = t.replace(/([^\n])##/g, '$1\n##');
     // Negritas con *...*
     t = t.replace(/\*(.*?)\*/g, '<b>$1</b>');
@@ -227,62 +227,65 @@ function formatDescripcionHTML(textoPlano) {
     for (let i = 0; i < lines.length; ) {
         let line = lines[i];
 
-        // Encabezado "## Título" -> una sola separación antes
+        // Encabezado "## Título" -> <br><h4><b>Título</b></h4> (con salto ANTES y sin salto después)
         const h = line.match(/^##\s*(.+)/);
         if (h) {
-            const hdr = '<h4 style="margin:0;"><b>' + h[1].trim() + '</b></h4>';
-            if (out.length > 0 && out[out.length - 1] !== '<br>') out.push('<br>'); // un solo salto antes del título
-            out.push(hdr);
+            const hdr = '<h4 style="margin:6px 0 0 0;"><b>' + h[1].trim() + '</b></h4>';
+            if (out.length > 0) {
+                out.push('<br class="pre-h4">' + hdr);
+            } else {
+                out.push(hdr);
+            }
             i++;
             continue;
         }
 
-        // Bloques de lista con "- "
+        // Lista con guion al inicio "- item"
         if (/^\s*-\s+/.test(line)) {
             let items = [];
             while (i < lines.length && /^\s*-\s+(.+)$/.test(lines[i])) {
                 items.push(lines[i].replace(/^\s*-\s+/, '').trim());
                 i++;
             }
-            out.push("<ul class='ul-text'>" + items.map(li => "<li>" + li + "</li>").join("") + "</ul>");
+            out.push("<ul style='list-style:none;margin:0;padding-left:0;'>" + items.map(li => "<li style='margin:0;line-height:1.6;'>- " + li + "</li>").join("") + "</ul>");
             continue;
         }
 
-        // Listas separadas por punto y coma
+        // Lista separada por punto y coma "a; b; c"
         if (line.includes(';')) {
             const items = line.split(';').map(s => s.trim()).filter(Boolean);
             if (items.length >= 2) {
-                out.push("<ul class='ul-text'>" + items.map(li => "<li>" + li + "</li>").join("") + "</ul>");
+                out.push("<ul style='list-style:none;margin:0;padding-left:0;'>" + items.map(li => "<li style='margin:0;line-height:1.6;'>- " + li + "</li>").join("") + "</ul>");
                 i++;
                 continue;
             }
         }
 
-        // Línea en blanco -> garantizar un SOLO <br> entre párrafos
-        if (!line.trim()) {
-            if (out.length > 0 && out[out.length - 1] !== '<br>') out.push('<br>');
-            i++;
-            continue;
-        }
-
         // Línea normal
-        out.push(line.trim());
+        if (line.length > 0) out.push(line);
         i++;
     }
 
-    // Unir con <br> y limpiar múltiplos
     let html = out.join('<br>');
-    html = cleanForCSV(html);
-
-    // Quitar <br> inmediatamente después de un </h4>
+html = cleanForCSV(html);
+    
     html = html.replace(/<\/h4><br>/g, '</h4>');
-    // Colapsar múltiples <br> en uno solo
-    html = html.replace(/(<br>\s*){2,}/g, '<br>');
+    html = html.replace(/(<br>\s*)+(<br class="pre-h4">)/g, '$2');
+    html = html.replace(/^\s*(<br class="pre-h4">)+/m, '<br class="pre-h4">');
+    html = html.replace(/(<br class="pre-h4">)\s*<br>/g, '$1');
+    html = html.replace(/(<br>){2,}/g, '<br>');
+    html = html.replace(/<\/h4><br>/g, '</h4>');
+    html = html.replace(/(<br>\s*)+(<br class="pre-h4">)/g, '$2');
+    html = html.replace(/^\s*(<br class="pre-h4">)+/m, '<br class="pre-h4">');
+    html = html.replace(/(<br class="pre-h4">)\s*<br>/g, '$1');
+    html = html.replace(/(<br>\s*)+(<br class="pre-h4">)/g, '$2');
+    html = html.replace(/^\s*(<br class="pre-h4">)+/m, '<br class="pre-h4">');
+    html = html.replace(/(<br>){2,}/g, '<br>');
     return html;
 }
 function formatMetaDescripcion(texto) {
     if (!texto) return '';
-    const style = "margin:6px 0; background:#f4f6f7; color:#333; font-size:15px; padding:12px 20px; border-radius:8px; font-weight:normal; line-height:1.6;";
+    const style = "margin-bottom:18px; background:#f4f6f7; color:#333; font-size:15px; padding:12px 20px; border-radius:8px; font-weight:normal; line-height:1.6;";
     const bloques = String(texto).trim().split(/\r?\n\r?\n/);
     return bloques.map(b => `<p style='${style}'>${b.replace(/\r?\n/g, '<br>')}</p>`).join('');
 }
@@ -570,20 +573,19 @@ const cta = metaDescripcion.trim(); // sin fallback
     html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div class='visual-id'>Ficha N° ${index + 1}</div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:8px; margin-top:6px;'>📦 SKU: ${sku}</div>
-<h3 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h3>
+<h3 style='margin-bottom:15px; color:#2c3e50;'>${descripcion}</h3>
 ${cta ? formatMetaDescripcion(cta) : ''}
-${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
-${difBlock1}
-${descripcionProducto ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:15px; padding:0; border-radius:8px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
-${marca ? `<div style='margin-bottom:10px; font-size:15px;'>${marca}</div>` : ''}
+${imgMarca ? `<div style='margin:6px 0 8px 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
+${marca ? `<div style='margin-bottom:10px; font-size:15px;'>${marca}</div>` : ''}${difBlock1}
+${descripcionProducto ? `<div style='margin-bottom:15px; background:transparent; color:#000; font-size:15px; padding:12px 0; border-radius:8px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${botonHTML}${difBlock23}
 <div style='margin:20px 0;'></div>
 <div style='border:1px solid #ddd; border-radius:8px; background:#fff;'>
 <h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center; border-radius:8px 8px 0 0;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
 <table style='width:100%; border-collapse:collapse;'>`;
-    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Material:</b> ${material}</td></tr>`;
-    if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Dimensiones:</b> ${dimensiones}</td></tr>`;
+    if (material) html += `<tr style='border-bottom:1px solid #ddd;'><td style='padding:15px;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:15px;'><b>Material:</b> ${material}</td></tr>`;
+    if (dimensiones && dimensiones.trim() !== '') html += `<tr><td style='padding:15px;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:15px;'><b>Dimensiones:</b> ${dimensiones}</td></tr>`;
     html += `</table></div>`;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
@@ -663,12 +665,11 @@ if (dif2 || dif3) {
         </div>`;
     }
     let html = `<div style='margin-bottom:25px;
-<h3 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h3>
+<h3 style='margin-bottom:15px; color:#2c3e50;'>${descripcion}</h3>
 ${cta ? formatMetaDescripcion(cta) : ''}
-${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
-${difBlock1}
-${descripcionProducto ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:15px; padding:0; border-radius:8px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
-${marca ? `<div style='margin-bottom:10px; font-size:15px;'>${marca}</div>` : ''}
+${imgMarca ? `<div style='margin:6px 0 8px 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
+${marca ? `<div style='margin-bottom:10px; font-size:15px;'>${marca}</div>` : ''}${difBlock1}
+${descripcionProducto ? `<div style='margin-bottom:15px; background:transparent; color:#000; font-size:15px; padding:12px 0; border-radius:8px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${botonHTML}
 ${difBlock23}
@@ -677,8 +678,8 @@ ${difBlock23}
 <h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
 <table style='width:100%; border-collapse:collapse;'>`;
 html = cleanForCSV(html);
-    if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Material:</b> ${material}</td></tr>`;
-    if (dimensiones) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:18px 16px; vertical-align:middle;'><b style='font-weight:700;'>Dimensiones:</b> ${dimensiones}</td></tr>`;
+    if (material) html += `<tr style='border-bottom:1px solid #ddd;'><td style='padding:15px;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:15px;'><b>Material:</b> ${material}</td></tr>`;
+    if (dimensiones) html += `<tr><td style='padding:15px;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:15px;'><b>Dimensiones:</b> ${dimensiones}</td></tr>`;
     html += `</table></div>`;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
