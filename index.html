@@ -52,10 +52,22 @@ function buildDifUrl(v) {
   if (!v) return "";
   const trimmed = String(v).trim();
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  const fileOnly = trimmed.replace(/^.*[\/]/, "").replace(/[?#].*$/, "");
+
+  let fileOnly = trimmed.replace(/^.*[\/]/, "").replace(/[?#].*$/, "");
+
+  // Si viene sin extensión (ej: Dif_233486999), asumir .webp
+  if (!/\.[a-z0-9]+$/i.test(fileOnly)) {
+    fileOnly += ".webp";
+  }
+
   const ext = (fileOnly.split(".").pop() || "").toLowerCase();
-  const allowed = ["webp","jpg","jpeg"]; // acepta .webp y .jpg (.jpeg)
-  if (!allowed.includes(ext)) console.warn("Extensión no habitual en Imagen diferenciadora:", ext);
+  const allowed = ["webp","jpg","jpeg","png"];
+
+  if (!allowed.includes(ext)) {
+    console.warn("Extensión no soportada en Imagen diferenciadora:", ext);
+    return "";
+  }
+
   return DIF_IMG_PART1 + encodeURIComponent(fileOnly) + DIF_IMG_PART2;
 }
 
@@ -237,35 +249,73 @@ function cleanEmptyHtmlBlocks(html) {
 
 function formatDescripcionHTML(textoPlano) {
     if (!textoPlano) return '';
-    let t = String(textoPlano).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    // Forzar '##' a nueva línea si viene pegado
+
+    let t = String(textoPlano)
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .trim();
+
+    // Forzar ## a nueva línea si viene pegado al texto anterior
     t = t.replace(/([^\n])##/g, '$1\n##');
+
     // Negritas con *...*
     t = t.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
 
     const lines = t.split('\n');
-    let out = [];
-    for (let i = 0; i < lines.length; ) {
-        let line = lines[i];
+    let html = '';
+    let pendingParagraphBreak = false;
 
-        // Encabezado "## Título" -> una sola separación antes
+    for (let i = 0; i < lines.length; ) {
+        const raw = lines[i];
+        const line = raw.trim();
+
+        // Línea vacía: solo se recuerda para separar párrafos normales.
+        // Nunca agrega espacio después de un H3.
+        if (!line) {
+            pendingParagraphBreak = true;
+            i++;
+            continue;
+        }
+
+        // Encabezado ## -> H3 REAL.
         const h = line.match(/^##\s*(.+)/);
         if (h) {
-            const hdr = '<h3 style=\"margin:6px 0 4px 0;\">' + h[1].trim() + '</h3>';
-            if (out.length > 0 && out[out.length - 1] !== '<br>') out.push('<br>'); // un solo salto antes del título
-            out.push(hdr);
+            html = html.replace(/(?:<br>\s*)+$/gi, '');
+
+            html += '<h3 style="' +
+                'display:block !important;' +
+                'margin:10px 0 0 0 !important;' +
+                'padding:0 !important;' +
+                'height:auto !important;' +
+                'min-height:0 !important;' +
+                'line-height:1.2 !important;' +
+                'font-size:14px !important;' +
+                'font-weight:700 !important;' +
+                '">' + h[1].trim() + '</h3>';
+
+            // IMPORTANTE: el texto que sigue queda pegado al H3.
+            pendingParagraphBreak = false;
             i++;
             continue;
         }
 
         // Bloques de lista con "- "
-        if (/^\s*-\s+/.test(line)) {
+        if (/^\s*-\s+/.test(raw)) {
             let items = [];
             while (i < lines.length && /^\s*-\s+(.+)$/.test(lines[i])) {
                 items.push(lines[i].replace(/^\s*-\s+/, '').trim());
                 i++;
             }
-            out.push("<ul class='ul-text'>" + items.map(li => "<li>" + li + "</li>").join("") + "</ul>");
+
+            if (pendingParagraphBreak && html && !/<\/h3>\s*$/i.test(html)) {
+                html += '<br>';
+            }
+
+            html += "<ul class='ul-text'>" +
+                items.map(li => "<li>" + li + "</li>").join("") +
+                "</ul>";
+
+            pendingParagraphBreak = false;
             continue;
         }
 
@@ -273,33 +323,43 @@ function formatDescripcionHTML(textoPlano) {
         if (line.includes(';')) {
             const items = line.split(';').map(s => s.trim()).filter(Boolean);
             if (items.length >= 2) {
-                out.push("<ul class='ul-text'>" + items.map(li => "<li>" + li + "</li>").join("") + "</ul>");
+                if (pendingParagraphBreak && html && !/<\/h3>\s*$/i.test(html)) {
+                    html += '<br>';
+                }
+
+                html += "<ul class='ul-text'>" +
+                    items.map(li => "<li>" + li + "</li>").join("") +
+                    "</ul>";
+
+                pendingParagraphBreak = false;
                 i++;
                 continue;
             }
         }
 
-        // Línea en blanco -> garantizar un SOLO <br> entre párrafos
-        if (!line.trim()) {
-            if (out.length > 0 && out[out.length - 1] !== '<br>') out.push('<br>');
-            i++;
-            continue;
+        // Texto normal
+        if (html) {
+            const afterHeading = /<\/h3>\s*$/i.test(html);
+
+            if (!afterHeading) {
+                // Un salto entre líneas/párrafos normales
+                html += '<br>';
+            }
+            // Si viene inmediatamente después de H3, NO agrega <br>.
         }
 
-        // Línea normal
-        out.push(line.trim());
+        html += line;
+        pendingParagraphBreak = false;
         i++;
     }
 
-    // Unir con <br> y limpiar múltiplos
-    let html = out.join('<br>');
+    // Limpieza final
     html = cleanForCSV(html);
+    html = html.replace(/<\/h3>(?:\s|&nbsp;|<br\s*\/?>)+/gi, '</h3>');
+    html = html.replace(/(?:<br>\s*){2,}/gi, '<br>');
+    html = html.replace(/(?:<br>\s*)+$/gi, '');
 
-    // Quitar <br> inmediatamente después de un </h4>
-    html = html.replace(/<\/h4><br>/g, '</h4>');
-    // Colapsar múltiples <br> en uno solo
-    html = html.replace(/(<br>\s*){2,}/g, '<br>');
-    return html;
+    return html.trim();
 }
 function formatMetaDescripcion(texto) {
     if (!texto) return '';
@@ -472,8 +532,7 @@ img { max-width: 100%; height: auto; }
 <li>⬇️ <strong>Exportar:</strong> Exportar HTML a Excel descarga resultados.</li>
 </ul>
 <div style="background: #fff9e6; border-left: 6px solid #f5c518; border-top-left-radius: 12px; border-bottom-left-radius: 12px; padding: 20px; margin-bottom: 30px;">
-  <h3 style="margin-top: 0; color: #7d6608;">📌 <strong>Directrices</strong></h3>
-  <ul style="line-height:1.7; color: #000; margin: 0;"><li><strong>Descripción corta:</strong> Máximo 160 caracteres.</li>
+  <h3 style="display:block !important;margin-top:10px !important;margin-right:0 !important;margin-bottom:0 !important;margin-left:0 !important;padding-top:0 !important;padding-right:0 !important;padding-bottom:0 !important;padding-left:0 !important;height:auto !important;min-height:0 !important;line-height:1.2 !important;font-size:14px !important;font-weight:700 !important;">📌 <strong>Directrices</strong></h3><ul style="line-height:1.7; color: #000; margin: 0;"><li><strong>Descripción corta:</strong> Máximo 160 caracteres.</li>
 <li><strong>Descripción larga:</strong> Este campo se convierte en texto HTML. Usa palabras *entre asteriscos* para poner en negrita, y ## antes de títulos para destacarlos.</li>
 <li><strong>Descripción de la Marca:</strong> Usa el archivo "Descripciones Marcas y urls" desde SharePoint.</li>
 <li><strong>Imagen de Marca:</strong> Agrega el nombre de la imagen más la extensión, Ej. logoBC.png (acepta .jpg, .jpeg, .png, .webp ✅). Debe estar alojada en Filezilla &gt; Carpeta Logos (Máx 60 px de alto)</li>
@@ -584,7 +643,7 @@ const cta = metaDescripcion.trim(); // sin fallback
     
     if (botonTexto && botonUrl) {
       botonHTML = `<div style='margin:12px 0 8px 0;'>
-        <a class='chip-documento' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
+        <a class='chip-documento chip-marca chip-enlace-marca' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
           <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>${botonTexto}</span>
           <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Descargar documento</span>
         </a>
@@ -604,8 +663,7 @@ ${botonHTML}${difBlock23}`;
     if (material || (dimensiones && dimensiones.trim() !== '')) {
       html += `<div style='margin:20px 0;'></div>
 <div style='border:1px solid #ddd; border-radius:6px; background:#fff;'>
-<h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center; border-radius:8px 8px 0 0;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
-<table style='width:100%; border-collapse:collapse;'>`;
+<h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center; border-radius:8px 8px 0 0;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3><table style='width:100%; border-collapse:collapse;'>`;
       if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Material:</strong> ${material}</td></tr>`;
       if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
       html += `</table></div>`;
@@ -677,7 +735,7 @@ if (dif2 || dif3) {
     
     if (botonTexto && botonUrl) {
       botonHTML = `<div style='margin:12px 0 8px 0;'>
-        <a class='chip-documento' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
+        <a class='chip-documento chip-marca chip-enlace-marca' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
           <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>${botonTexto}</span>
           <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Descargar documento</span>
         </a>
@@ -696,8 +754,7 @@ ${difBlock23}`;
     if (material || (dimensiones && dimensiones.trim() !== '')) {
       html += `<div style='margin:20px 0;'></div>
 <div style='border:1px solid #ddd; border-radius:6px;'>
-<h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3>
-<table style='width:100%; border-collapse:collapse;'>`;
+<h3 style='background: #2C3E50;color:white;padding:15px;margin:0; text-align:center;'>Nuestros Productos<br>Ficha técnica y especificaciones</h3><table style='width:100%; border-collapse:collapse;'>`;
       if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Material:</strong> ${material}</td></tr>`;
       if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:84px; padding:18px 12px; text-align:center; border-right:1px solid #e5e7eb; vertical-align:middle;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:18px 16px; vertical-align:middle;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
       html += `</table></div>`;
