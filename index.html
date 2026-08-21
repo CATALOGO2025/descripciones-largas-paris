@@ -214,6 +214,27 @@ function cleanForCSV(html) {
   return String(html).replace(/"/g, "'");
 }
 
+
+function cleanEmptyHtmlBlocks(html) {
+  if (!html) return '';
+  let s = String(html);
+
+  // Quitar elementos vacíos que puedan dejar aire o bordes residuales
+  s = s.replace(/<div\b[^>]*>\s*<\/div>/gi, '');
+  s = s.replace(/<p\b[^>]*>\s*<\/p>/gi, '');
+  s = s.replace(/<span\b[^>]*>\s*<\/span>/gi, '');
+
+  // Quitar <br> al inicio/final y múltiples saltos consecutivos
+  s = s.replace(/^(?:\s*<br\s*\/?>\s*)+/gi, '');
+  s = s.replace(/(?:\s*<br\s*\/?>\s*)+$/gi, '');
+  s = s.replace(/(?:<br\s*\/?>\s*){2,}/gi, '<br>');
+
+  // Quitar espacios/saltos entre etiquetas para no generar "aire" textual
+  s = s.replace(/>\s+</g, '><');
+
+  return s.trim();
+}
+
 function formatDescripcionHTML(textoPlano) {
     if (!textoPlano) return '';
     let t = String(textoPlano).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -379,7 +400,13 @@ br.pre-h4{display:block;margin:0 0 0 0;}
   border: 0;
 }
 
-</style>
+
+    .chip-documento:hover {
+      background-color: #eaf5ff !important;
+      border-color: #9bc9ee !important;
+    }
+
+  </style>
 <style>
 
 /* ==== Responsividad Web / Mobile / App ==== */
@@ -556,29 +583,21 @@ const cta = metaDescripcion.trim(); // sin fallback
     
     
     if (botonTexto && botonUrl) {
-      botonHTML = `
-                <div style='margin: 15px 0;'>
-          <a href='${botonUrl}' target='_blank' style='
-            display:inline-flex; align-items:center; justify-content:center; gap:6px;
-            background:#0057cb; color:#fff;
-            padding:6px 14px; min-height:32px;
-            border-radius:6px; font-size:14px; font-weight:600; line-height:1;
-            text-decoration:none;
-            box-shadow:0 2px 6px rgba(0,0,0,.12); transition:all .2s ease;
-          ' onmouseover="this.style.background='#0049a8';this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 14px rgba(0,0,0,.18)'"
-             onmouseout="this.style.background='#0057cb';this.style.transform='translateY(0)';this.style.boxShadow='0 3px 8px rgba(0,0,0,.12)'">
-            ${botonTexto}
-          </a>
-        </div>`;
+      botonHTML = `<div style='margin:12px 0 8px 0;'>
+        <a class='chip-documento' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
+          <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>${botonTexto}</span>
+          <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Descargar documento</span>
+        </a>
+      </div>`;
     }
     html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div class='visual-id'>Ficha N° ${index + 1}</div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
-${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
-${marca ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
-${descripcionProducto ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
+${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${difBlock1}
 ${renderIconosExport(iconos)}
 ${botonHTML}${difBlock23}`;
@@ -600,7 +619,7 @@ ${botonHTML}${difBlock23}`;
     }
 });
   html += '</div>';
-  container.innerHTML = removeEmptyFichaBlocks(html);
+  container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
 }
 function exportHtmlToExcel() {
   if (!excelRows.length) return alert('❌ No hay datos cargados para exportar.');
@@ -657,27 +676,19 @@ if (dif2 || dif3) {
 
     
     if (botonTexto && botonUrl) {
-      botonHTML = `
-                <div style='margin: 15px 0;'>
-          <a href='${botonUrl}' target='_blank' style='
-            display:inline-flex; align-items:center; justify-content:center; gap:6px;
-            background:#0057cb; color:#fff;
-            padding:6px 14px; min-height:32px;
-            border-radius:6px; font-size:14px; font-weight:600; line-height:1;
-            text-decoration:none;
-            box-shadow:0 2px 6px rgba(0,0,0,.12); transition:all .2s ease;
-          ' onmouseover="this.style.background='#0049a8';this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 14px rgba(0,0,0,.18)'"
-             onmouseout="this.style.background='#0057cb';this.style.transform='translateY(0)';this.style.boxShadow='0 3px 8px rgba(0,0,0,.12)'">
-            ${botonTexto}
-          </a>
-        </div>`;
+      botonHTML = `<div style='margin:12px 0 8px 0;'>
+        <a class='chip-documento' href='${botonUrl}' target='_blank' style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
+          <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>${botonTexto}</span>
+          <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Descargar documento</span>
+        </a>
+      </div>`;
     }
     let html = `<div style='margin-bottom:25px;'>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
-${imgMarca ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
-${marca ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
-${descripcionProducto ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
+${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${difBlock1}
 ${renderIconosExport(iconos)}
 ${botonHTML}
@@ -694,7 +705,7 @@ ${difBlock23}`;
     html = cleanForCSV(html);
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
-    html = removeEmptyFichaBlocks(html);
+    html = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
     data.push([sku, cleanForCSV(html)]);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
