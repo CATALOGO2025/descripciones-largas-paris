@@ -222,8 +222,13 @@ window.onerror=function(m,s,l,c,e){alert('⚠️ Error JS '+m+' ['+l+':'+c+']');
 
 function cleanForCSV(html) {
   if (html == null) return '';
-  // Reemplazar comillas dobles por comillas simples para no romper el parser que espera ';' o nueva línea
-  return String(html).replace(/"/g, "'");
+  // Normalizar saltos de línea y espacios para evitar que atributos HTML queden como texto suelto
+  // al pasar por CSV / importadores intermedios.
+  return String(html)
+    .replace(/\r?\n|\r/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/"/g, "'")
+    .trim();
 }
 
 
@@ -679,11 +684,7 @@ const cta = metaDescripcion.trim(); // sin fallback
     // Bloque 1: debajo de la descripción corta
     let difBlock1 = '';
     if (dif1) {
-      difBlock1 = `
-        <div style='margin:16px 0; clear:both;'>
-          <img src="${dif1}" alt="" loading="lazy" decoding="async"
-               style='width:100%;height:auto;display:block;border-radius:10px;'>
-        </div>`;
+      difBlock1 = `<div style='margin:16px 0;clear:both;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'><img src='${dif1}' alt='' loading='lazy' decoding='async' style='display:block !important;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'></div>`;
     }
 
     // Bloque 2-3: debajo del botón (dos columnas)
@@ -691,14 +692,15 @@ const cta = metaDescripcion.trim(); // sin fallback
     let difBlock23 = '';
     if (dif2 || dif3) {
       difBlock23 = `
-        <div style='margin:10px 0 0 0; display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; align-items:start; width:100%; clear:both;'>
-          ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='width:100%;height:auto;display:block;border-radius:10px;object-fit:contain;'>` : ''}
-          ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='width:100%;height:auto;display:block;border-radius:10px;object-fit:contain;'>` : ''}
+        <div style='margin:10px 0 0 0;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;width:100%;max-width:100%;clear:both;box-sizing:border-box;overflow:hidden;'>
+          ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
+          ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
         </div>`;
     }
     
     
     botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
+    const hayImagenDiferenciadora = !!(dif1 || dif2 || dif3);
     html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div class='visual-id'>Ficha N° ${index + 1}</div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
@@ -707,9 +709,11 @@ ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
-${difBlock1}
 ${renderIconosExport(iconos)}
-${botonHTML}${difBlock23}`;
+${hayImagenDiferenciadora ? botonHTML : ''}
+${difBlock1}
+${difBlock23}
+${!hayImagenDiferenciadora ? botonHTML : ''}`;
     if (material || (dimensiones && dimensiones.trim() !== '')) {
       html += `<div style='margin:20px 0;'></div>
 <div style='border:1px solid #ddd; border-radius:6px; background:#fff;'>
@@ -768,34 +772,32 @@ const cta = metaDescripcion.trim(); // sin fallback
 
     let difBlock1 = '';
 if (dif1) {
-  difBlock1 = `
-    <div style='margin:16px 0; clear:both;'>
-      <img src="${dif1}" alt="" loading="lazy" decoding="async"
-           style='width:100%;height:auto;display:block;border-radius:10px;'>
-    </div>`;
+  difBlock1 = `<div style='margin:16px 0;clear:both;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'><img src='${dif1}' alt='' loading='lazy' decoding='async' style='display:block !important;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'></div>`;
 }
 
 let difBlock23 = '';
 if (dif2 || dif3) {
   difBlock23 = `
-    <div style='margin:10px 0 0 0; display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; align-items:start; width:100%; clear:both;'>
-      ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='width:100%;height:auto;display:block;border-radius:10px;object-fit:contain;'>` : ''}
-      ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='width:100%;height:auto;display:block;border-radius:10px;object-fit:contain;'>` : ''}
+    <div style='margin:10px 0 0 0;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;width:100%;max-width:100%;clear:both;box-sizing:border-box;overflow:hidden;'>
+      ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
+      ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
     </div>`;
 }
 
     
     botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
+    const hayImagenDiferenciadora = !!(dif1 || dif2 || dif3);
     let html = `<div style='margin-bottom:25px;'>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
-${difBlock1}
 ${renderIconosExport(iconos)}
-${botonHTML}
-${difBlock23}`;
+${hayImagenDiferenciadora ? botonHTML : ''}
+${difBlock1}
+${difBlock23}
+${!hayImagenDiferenciadora ? botonHTML : ''}`;
     if (material || (dimensiones && dimensiones.trim() !== '')) {
       html += `<div style='margin:20px 0;'></div>
 <div style='border:1px solid #ddd; border-radius:6px;'>
