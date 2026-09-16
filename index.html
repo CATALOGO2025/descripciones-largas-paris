@@ -684,18 +684,14 @@ const cta = metaDescripcion.trim(); // sin fallback
     // Bloque 1: debajo de la descripción corta
     let difBlock1 = '';
     if (dif1) {
-      difBlock1 = `<div style='margin:16px 0;clear:both;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'><img src='${dif1}' alt='' loading='lazy' decoding='async' style='display:block !important;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'></div>`;
+      difBlock1 = `<div style='width:100%;max-width:100%;margin:16px 0;overflow:hidden;'><img src='${dif1}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'></div>`;
     }
 
     // Bloque 2-3: debajo del botón (dos columnas)
         // Bloque 2-3: debajo del botón (dos columnas)
     let difBlock23 = '';
     if (dif2 || dif3) {
-      difBlock23 = `
-        <div style='margin:10px 0 0 0;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;width:100%;max-width:100%;clear:both;box-sizing:border-box;overflow:hidden;'>
-          ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
-          ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
-        </div>`;
+      difBlock23 = `<div style='width:100%;max-width:100%;margin:10px 0 0 0;overflow:hidden;'>${dif2 ? `<img src='${dif2}' alt='' style='display:block;width:100%;max-width:100%;height:auto;margin-bottom:12px;border-radius:10px;'>` : ''}${dif3 ? `<img src='${dif3}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'>` : ''}</div>`;
     }
     
     
@@ -772,16 +768,12 @@ const cta = metaDescripcion.trim(); // sin fallback
 
     let difBlock1 = '';
 if (dif1) {
-  difBlock1 = `<div style='margin:16px 0;clear:both;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden;'><img src='${dif1}' alt='' loading='lazy' decoding='async' style='display:block !important;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'></div>`;
+  difBlock1 = `<div style='width:100%;max-width:100%;margin:16px 0;overflow:hidden;'><img src='${dif1}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'></div>`;
 }
 
 let difBlock23 = '';
 if (dif2 || dif3) {
-  difBlock23 = `
-    <div style='margin:10px 0 0 0;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;width:100%;max-width:100%;clear:both;box-sizing:border-box;overflow:hidden;'>
-      ${dif2 ? `<img src="${dif2}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
-      ${dif3 ? `<img src="${dif3}" alt="" loading="lazy" decoding="async" style='display:block !important;flex:1 1 240px;width:100% !important;max-width:100% !important;min-width:0 !important;height:auto !important;object-fit:contain !important;box-sizing:border-box;border-radius:10px;'>` : ''}
-    </div>`;
+  difBlock23 = `<div style='width:100%;max-width:100%;margin:10px 0 0 0;overflow:hidden;'>${dif2 ? `<img src='${dif2}' alt='' style='display:block;width:100%;max-width:100%;height:auto;margin-bottom:12px;border-radius:10px;'>` : ''}${dif3 ? `<img src='${dif3}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'>` : ''}</div>`;
 }
 
     
