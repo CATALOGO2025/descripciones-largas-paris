@@ -525,6 +525,11 @@ img { max-width: 100%; height: auto; }
 }
 
 </style>
+
+<style>
+.ai-panel{display:none;margin:20px;background:#fff;border:1px solid #d9e2ec;border-radius:8px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.ai-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.ai-note{font-size:13px;color:#52606d}.ai-item{border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin:12px 0;background:#fafbfc}.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ai-box{border:1px solid #e5e7eb;border-radius:6px;padding:10px;white-space:pre-wrap;min-height:70px;background:#fff}.ai-label{font-weight:700;margin-bottom:5px}.ai-status{font-weight:700}.ai-actions button{padding:8px 12px;margin-top:10px}.ai-loading{display:none;font-weight:700;color:#000273}@media(max-width:800px){.ai-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <div class="header" style="background:#000273;"><img src="https://cl-paris-media-hub.ecomm.cencosud.com/files/logos_paris/logos_web/Header_Brand_125_60x60.svg?v=1" alt="Paris" style="max-height:40px;height:auto;width:auto;display:block;"/><span>Creador de Descripciones Largas</span></div>
@@ -546,12 +551,24 @@ img { max-width: 100%; height: auto; }
 <li>En la plantilla descargada podrás ver las instrucciones en mayor detalle</li></ul>
 </div>
 <button onclick="updateTables()">👁️ Visualizar Tablas</button>
+<button onclick="openClaimsReview()">✨ Detectar claims</button>
 <button onclick="exportHtmlToExcel()">⬇️ Exportar HTML a Excel</button>
 <button id="btnDescargarPlantilla" onclick="downloadTemplate()">📄 Descargar Plantilla</button> <span id="tplStatus" style="font-size:12px;color:#555;margin-left:8px;display:none;"></span>
 <button onclick="limpiarTodo()">🧹 Limpiar Todo</button>
 <input accept=".xlsx" id="importFile" onchange="importExcel()" type="file"/>
 </div>
 <div class="card" id="tablesContainer"></div>
+<div class="ai-panel" id="claimsPanel">
+<h2>✨ Sugerencias automáticas de claims</h2>
+<div class="ai-toolbar">
+<button onclick="detectClaims()">🔎 Detectar claims</button>
+<button onclick="acceptAllClaims()">✓ Aplicar todas las sugerencias</button>
+<span class="ai-loading" id="claimsLoading">Analizando…</span>
+</div>
+<div class="ai-note">Se revisan el <strong>Nombre del Producto</strong>, <strong>Descripción corta</strong> y <strong>Descripción larga</strong>. Si se detecta alguno de los claims disponibles en la plantilla y todavía no está cargado en Icono 1–6, se mostrará una sugerencia para agregar su icono con un clic. Se consideran: <strong>Cruelty Free, Libre de Pesticidas, No Probado en Animales, No Toxico, Probado Lab, Sin Aceite, Sin Parabenos, Sin Sulfatos y Vegano</strong>.</div>
+<div id="claimsSummary" class="ai-note" style="margin-top:10px;font-weight:700;"></div>
+<div id="claimsResults"></div>
+</div>
 <script>
 
 const defaultImagenes = {
@@ -636,6 +653,210 @@ function buildManualesChip(botonTexto, urls) {
         ${items}
       </div>
     </details>`;
+}
+
+
+// === Detección local de claims (sin API / sin IA) ===
+// Solo propone claims que ya existen como opciones válidas de Icono 1–6.
+const CLAIM_RULES = [
+  {
+    label: 'Cruelty Free',
+    patterns: [/\bcruelty\s*[- ]?\s*free\b/i]
+  },
+  {
+    label: 'Libre de Pesticidas',
+    patterns: [/\blibre\s+de\s+pesticidas\b/i, /\bsin\s+pesticidas\b/i]
+  },
+  {
+    label: 'No Probado en Animales',
+    patterns: [/\bno\s+probado\s+en\s+animales\b/i, /\bno\s+testeado\s+en\s+animales\b/i]
+  },
+  {
+    label: 'No Toxico',
+    patterns: [/\bno\s+t[oó]xico\b/i, /\bno[- ]?t[oó]xico\b/i]
+  },
+  {
+    label: 'Probado Lab',
+    patterns: [/\bprobado\s+lab\b/i, /\bprobado\s+en\s+laboratorio\b/i, /\btesteado\s+en\s+laboratorio\b/i]
+  },
+  {
+    label: 'Sin Aceite',
+    patterns: [/\bsin\s+aceite\b/i, /\blibre\s+de\s+aceite\b/i, /\boil\s*[- ]?\s*free\b/i]
+  },
+  {
+    label: 'Sin Parabenos',
+    patterns: [/\bsin\s+parabenos\b/i, /\blibre\s+de\s+parabenos\b/i, /\bparaben\s*[- ]?\s*free\b/i]
+  },
+  {
+    label: 'Sin Sulfatos',
+    patterns: [/\bsin\s+sulfatos\b/i, /\blibre\s+de\s+sulfatos\b/i, /\bsulfate\s*[- ]?\s*free\b/i, /\bsulphate\s*[- ]?\s*free\b/i]
+  },
+  {
+    label: 'Vegano',
+    patterns: [/\bvegano\b/i, /\bvegana\b/i, /\bveganos\b/i, /\bveganas\b/i, /\bvegan\b/i]
+  }
+];
+
+let claimSuggestions = [];
+
+function openClaimsReview(){
+  if(!excelRows.length) return alert('❌ Primero carga un Excel.');
+  const panel=document.getElementById('claimsPanel');
+  panel.style.display='block';
+  detectClaims();
+  panel.scrollIntoView({behavior:'smooth'});
+}
+
+function getClaimSearchFields(row){
+  return [
+    {name:'Nombre del Producto', value:get(row,['Nombre del Producto','Nombre Producto','Producto'])},
+    {name:'Descripción corta', value:get(row,['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'])},
+    {name:'Descripción larga', value:get(row,['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción'])}
+  ].filter(x=>String(x.value||'').trim());
+}
+
+function getExistingIcons(row){
+  const vals=[];
+  for(let i=1;i<=6;i++){
+    const v=String(row['Icono '+i]||'').trim();
+    if(v) vals.push(v);
+  }
+  return vals;
+}
+
+function findClaimMatch(row, rule){
+  const fields=getClaimSearchFields(row);
+  for(const field of fields){
+    const text=String(field.value||'');
+    for(const re of rule.patterns){
+      const m=text.match(re);
+      if(m){
+        return {source:field.name, match:m[0], text};
+      }
+    }
+  }
+  return null;
+}
+
+function excerptAround(text, matched){
+  const raw=String(text||'').replace(/\s+/g,' ').trim();
+  const needle=String(matched||'');
+  if(!raw) return '';
+  const idx=raw.toLowerCase().indexOf(needle.toLowerCase());
+  if(idx<0) return raw.slice(0,180)+(raw.length>180?'…':'');
+  const start=Math.max(0,idx-70), end=Math.min(raw.length,idx+needle.length+90);
+  return (start>0?'…':'')+raw.slice(start,end)+(end<raw.length?'…':'');
+}
+
+function detectClaims(){
+  if(!excelRows.length) return alert('❌ Primero carga un Excel.');
+  claimSuggestions=[];
+  excelRows.forEach((row,rowIndex)=>{
+    const sku=get(row,['SKU']);
+    const existing=getExistingIcons(row);
+    CLAIM_RULES.forEach(rule=>{
+      const hit=findClaimMatch(row,rule);
+      if(!hit) return;
+      const already=existing.some(v=>v.toLowerCase()===rule.label.toLowerCase());
+      claimSuggestions.push({
+        rowIndex, sku, label:rule.label, source:hit.source, matched:hit.match,
+        excerpt:excerptAround(hit.text,hit.match),
+        status:already?'Ya agregado':'Sugerencia', already
+      });
+    });
+  });
+  renderClaimSuggestions();
+}
+
+function firstEmptyIconField(row){
+  for(let i=1;i<=6;i++){
+    const key='Icono '+i;
+    if(!String(row[key]||'').trim()) return key;
+  }
+  return '';
+}
+
+function applyClaimSuggestion(i, silent=false){
+  const s=claimSuggestions[i];
+  if(!s || s.already || s.status==='Aplicado') return true;
+  const row=excelRows[s.rowIndex];
+  if(!row) return false;
+  const existing=getExistingIcons(row);
+  if(existing.some(v=>v.toLowerCase()===s.label.toLowerCase())){
+    s.status='Ya agregado'; s.already=true; return true;
+  }
+  const field=firstEmptyIconField(row);
+  if(!field){
+    s.status='Sin espacio en Icono 1–6';
+    if(!silent) alert('⚠️ El SKU '+s.sku+' ya tiene ocupados Icono 1–6.');
+    return false;
+  }
+  row[field]=s.label;
+  s.status='Aplicado';
+  s.appliedField=field;
+  if(!silent){
+    renderClaimSuggestions();
+    updateTables();
+  }
+  return true;
+}
+
+function ignoreClaimSuggestion(i){
+  const s=claimSuggestions[i];
+  if(!s) return;
+  s.status='Ignorado';
+  renderClaimSuggestions();
+}
+
+function acceptAllClaims(){
+  if(!claimSuggestions.length) detectClaims();
+  let applied=0, failed=0;
+  claimSuggestions.forEach((s,i)=>{
+    if(s.status==='Sugerencia'){
+      if(applyClaimSuggestion(i,true)){ if(s.status==='Aplicado') applied++; }
+      else failed++;
+    }
+  });
+  renderClaimSuggestions();
+  updateTables();
+  alert('✅ Claims aplicados: '+applied+(failed?' · Sin espacio: '+failed:''));
+}
+
+function escClaim(v){
+  return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderClaimSuggestions(){
+  const root=document.getElementById('claimsResults');
+  const summary=document.getElementById('claimsSummary');
+  if(!root || !summary) return;
+  const detected=claimSuggestions.length;
+  const pending=claimSuggestions.filter(s=>s.status==='Sugerencia').length;
+  const applied=claimSuggestions.filter(s=>s.status==='Aplicado').length;
+  const already=claimSuggestions.filter(s=>s.status==='Ya agregado').length;
+  summary.textContent='Detectados: '+detected+' · Pendientes: '+pending+' · Aplicados: '+applied+' · Ya existentes: '+already;
+  if(!detected){
+    root.innerHTML='<div class="ai-item">No se detectaron los claims configurados en los textos cargados.</div>';
+    return;
+  }
+  root.innerHTML=claimSuggestions.map((s,i)=>{
+    const icon=ICONO_URLS[s.label]||'';
+    const canApply=s.status==='Sugerencia';
+    return `<div class="ai-item">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+        ${icon?`<img src="${escClaim(icon)}" alt="${escClaim(s.label)}" style="width:64px;height:64px;object-fit:contain;">`:''}
+        <div style="flex:1;min-width:260px;">
+          <div class="ai-status">SKU ${escClaim(s.sku)} · ${escClaim(s.label)}</div>
+          <div class="ai-note" style="margin-top:4px;">Detectado en <strong>${escClaim(s.source)}</strong>: “${escClaim(s.matched)}”</div>
+          <div class="ai-box" style="min-height:0;margin-top:8px;">${escClaim(s.excerpt)}</div>
+          <div class="ai-note" style="margin-top:7px;"><strong>Estado:</strong> ${escClaim(s.status)}${s.appliedField?' · agregado en '+escClaim(s.appliedField):''}</div>
+        </div>
+      </div>
+      <div class="ai-actions">
+        ${canApply?`<button onclick="applyClaimSuggestion(${i})">✓ Agregar ${escClaim(s.label)}</button><button onclick="ignoreClaimSuggestion(${i})">Ignorar</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function updateTables() {
@@ -813,6 +1034,10 @@ function limpiarTodo() {
   document.getElementById('importFile').value = '';
   document.getElementById('tablesContainer').innerHTML = '<p>📂 Sin datos cargados.</p>';
   excelRows = [];
+  claimSuggestions = [];
+  const cp=document.getElementById('claimsPanel'); if(cp) cp.style.display='none';
+  const cr=document.getElementById('claimsResults'); if(cr) cr.innerHTML='';
+  const cs=document.getElementById('claimsSummary'); if(cs) cs.textContent='';
   alert('🧹 Se limpiaron los datos y las tablas correctamente.');
 }
 </script>
