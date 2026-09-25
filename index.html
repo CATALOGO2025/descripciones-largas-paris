@@ -248,13 +248,70 @@ function renderTecnologiasChips(row){
   return `<div style='margin:10px 0 14px 0;'><div style='font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px;'>Tecnologías</div><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${items}</div></div>`;
 }
 
+function getOvenSourceText(row){
+  return [
+    get(row,['Nombre del Producto','Nombre Producto','Producto']),
+    get(row,['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']),
+    get(row,['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción'])
+  ].join(' ');
+}
+function hasExplicitOvenEvidence(row){
+  const text = getOvenSourceText(row);
+  return /\b(?:apto\s+para\s+(?:el\s+)?horno|puede\s+(?:ser\s+)?utilizarse\s+en\s+(?:el\s+)?horno|uso\s+en\s+(?:el\s+)?horno|oven\s+safe)\b/i.test(text);
+}
+function getExplicitOvenTemperature(row){
+  const text=getOvenSourceText(row);
+  const patterns=[
+    /\bapto\s+para\s+(?:el\s+)?horno[^.\n;]{0,35}?(?:hasta|m[aá]x(?:imo)?\.?|max\.?)?\s*(\d{2,3})\s*[º°]?\s*c\b/i,
+    /\bhorno[^.\n;]{0,25}?(?:hasta|m[aá]x(?:imo)?\.?|max\.?)\s*(\d{2,3})\s*[º°]?\s*c\b/i,
+    /\boven\s+safe[^.\n;]{0,25}?(?:up\s+to|max(?:imum)?\.?)?\s*(\d{2,3})\s*[º°]?\s*c\b/i
+  ];
+  for(const rx of patterns){
+    const m=text.match(rx);
+    if(m){
+      const n=parseInt(m[1],10);
+      if(Number.isFinite(n) && n>=50 && n<=500) return n;
+    }
+  }
+  return null;
+}
+function ovenChipLabel(row){
+  const temp=getExplicitOvenTemperature(row);
+  return temp ? `Apto para horno hasta ${temp} °C` : 'Apto para horno';
+}
+function sanitizeNotasProductoForContext(row, arr){
+  let notas=Array.from(new Set((arr||[]).map(v=>String(v||'').trim()).filter(Boolean)));
+  const explicit=hasExplicitOvenEvidence(row);
+  const temp=getExplicitOvenTemperature(row);
+  const ovenSpecific=temp ? `Apto para horno hasta ${temp} °C` : '';
+
+  // Elimina chips de horno heredados si no existe evidencia explícita de horno/oven.
+  if(!explicit){
+    notas=notas.filter(v=>!/^Apto para horno(?:\s+hasta\s+\d{2,3}\s*°?C)?$/i.test(v));
+  } else if(temp){
+    // Si existe temperatura explícita, siempre se conserva la versión más específica.
+    notas=notas.filter(v=>!/^Apto para horno(?:\s+hasta\s+\d{2,3}\s*°?C)?$/i.test(v));
+    notas.push(ovenSpecific);
+  } else {
+    // Sin temperatura, normaliza cualquier variante previa al chip genérico.
+    const hadOven=notas.some(v=>/^Apto para horno/i.test(v));
+    notas=notas.filter(v=>!/^Apto para horno(?:\s+hasta\s+\d{2,3}\s*°?C)?$/i.test(v));
+    if(hadOven) notas.push('Apto para horno');
+  }
+  return Array.from(new Set(notas));
+}
 function getNotasProducto(row){
   const raw=String(row['Notas del Producto'] || row['Notas Producto'] || '').trim();
   if(!raw) return [];
-  return raw.split('|').map(s=>s.trim()).filter(Boolean);
+  const original=raw.split('|').map(s=>s.trim()).filter(Boolean);
+  const notas=sanitizeNotasProductoForContext(row,original);
+  // Limpia también datos heredados de versiones anteriores para que no reaparezcan al exportar.
+  if(notas.join(' | ')!==original.join(' | ')) row['Notas del Producto']=notas.join(' | ');
+  return notas;
 }
 function setNotasProducto(row, arr){
-  row['Notas del Producto']=Array.from(new Set((arr||[]).filter(Boolean))).join(' | ');
+  const notas=sanitizeNotasProductoForContext(row,arr);
+  row['Notas del Producto']=notas.join(' | ');
 }
 function renderNotasProductoChips(row){
   const notas=getNotasProducto(row);
@@ -782,7 +839,8 @@ img { max-width: 100%; height: auto; }
 </div>
 <button onclick="updateTables()">👁️ Visualizar Tablas</button>
 <button onclick="openSmartReview()">✨ Revisar sugerencias</button>
-<button onclick="exportHtmlToExcel()">⬇️ Exportar HTML a Excel</button>
+<button onclick="exportHtmlToExcel('selected')">☑️ Exportar seleccionados</button>
+<button onclick="exportHtmlToExcel('all')">⬇️ Exportar todo</button>
 <button id="btnDescargarPlantilla" onclick="downloadTemplate()">📄 Descargar Plantilla</button> <span id="tplStatus" style="font-size:12px;color:#555;margin-left:8px;display:none;"></span>
 <button onclick="limpiarTodo()">🧹 Limpiar Todo</button>
 <input accept=".xlsx" id="importFile" onchange="importExcel()" type="file"/>
@@ -790,7 +848,7 @@ img { max-width: 100%; height: auto; }
 <div class="quality-panel" id="qualityPanel"></div>
 <div class="preview-card">
   <div class="preview-toolbar">
-    <div class="preview-toolbar-title">👁️ Vista previa de ficha</div>
+    <div class="preview-toolbar-title">👁️ Vista previa de ficha <span id="exportSelectionCount" style="margin-left:8px;font-size:11.5px;font-weight:600;color:#667085;">0 fichas seleccionadas</span></div>
     <div class="preview-mode-actions">
       <button type="button" id="previewDesktopBtn" class="preview-mode-btn active" onclick="setPreviewMode('desktop')">🖥 Desktop</button>
       <button type="button" id="previewMobileBtn" class="preview-mode-btn" onclick="setPreviewMode('mobile')">📱 Mobile</button>
@@ -818,6 +876,19 @@ const defaultImagenes = {
 };
 
 let excelRows = [];
+const exportSelection = new Set();
+
+function toggleExportSelection(index, checked){
+  if (checked) exportSelection.add(Number(index));
+  else exportSelection.delete(Number(index));
+  updateExportSelectionCount();
+}
+
+function updateExportSelectionCount(){
+  const el=document.getElementById('exportSelectionCount');
+  if(el) el.textContent=exportSelection.size + ' ficha' + (exportSelection.size===1?'':'s') + ' seleccionada' + (exportSelection.size===1?'':'s');
+}
+
 
 function importExcel() {
   const file = document.getElementById('importFile').files[0];
@@ -1125,7 +1196,22 @@ const INFO_SIN_CAMPO_CATEGORIES = [
     {label:'Libre de BPA',patterns:[/\blibre\s+de\s+bpa\b/i,/\bsin\s+bpa\b/i,/\bbpa\s*[- ]?free\b/i]},
     {label:'Apto para lavavajillas',patterns:[/\bapto\s+para\s+(?:el\s+)?lavavajillas\b/i,/\bse\s+puede\s+lavar\s+en\s+(?:el\s+)?lavavajillas\b/i,/\bdishwasher\s+safe\b/i]},
     {label:'Apto para microondas',patterns:[/\bapto\s+para\s+(?:el\s+)?microondas\b/i,/\bmicrowave\s+safe\b/i]},
-    {label:'Apto para horno',patterns:[/\bapto\s+para\s+(?:el\s+)?horno\b/i,/\boven\s+safe\b/i]},
+    // Horno: solo se sugiere cuando la referencia a horno es explícita.
+    // Nunca se infiere desde palabras genéricas como fuego, calor, cocina o temperatura.
+    {label:'Apto para horno',patterns:[
+      /\bapto\s+para\s+(?:el\s+)?horno(?:\s+(?:hasta|m[aá]x(?:imo)?\.?|max\.?)?\s*\d{2,3}\s*[º°]?\s*c)?\b/i,
+      /\bpuede\s+(?:ser\s+)?utilizarse\s+en\s+(?:el\s+)?horno\b/i,
+      /\buso\s+en\s+(?:el\s+)?horno\b/i,
+      /\boven\s+safe(?:\s+(?:up\s+to|max(?:imum)?\.?)?\s*\d{2,3}\s*[º°]?\s*c)?\b/i
+    ]},
+    // En menaje, "todo tipo de fuego" se refiere a compatibilidad con fuentes de cocción, no al horno.
+    {label:'Apto para todo tipo de cocinas',patterns:[
+      /\bapto\s+para\s+todo\s+tipo\s+de\s+fuegos?\b/i,
+      /\bapto\s+para\s+cualquier\s+tipo\s+de\s+fuego\b/i,
+      /\bcompatible\s+con\s+todo\s+tipo\s+de\s+cocinas?\b/i,
+      /\bapto\s+para\s+todo\s+tipo\s+de\s+cocinas?\b/i,
+      /\btodo\s+tipo\s+de\s+encimeras?\b/i
+    ]},
     {label:'Apto para freezer',patterns:[/\bapto\s+para\s+(?:el\s+)?freezer\b/i,/\bapto\s+para\s+congelador\b/i,/\bfreezer\s+safe\b/i]},
     {label:'Apto para alimentos',patterns:[/\bapto\s+para\s+(?:el\s+)?contacto\s+con\s+alimentos\b/i,/\bapto\s+para\s+alimentos\b/i]},
     {label:'Antiadherente',patterns:[/\bantiadherente(?:s)?\b/i,/\bnon\s*[- ]?stick\b/i]},
@@ -1314,11 +1400,15 @@ function detectInfoWithoutField(row,rowIndex,sku){
       for(const re of rule.patterns){
         const m=text.match(re);
         if(!m) continue;
-        const key=rule.label.toLowerCase();
+        // Seguridad de contexto: "Apto para horno" exige una referencia explícita a horno/oven
+        // en el texto encontrado. Expresiones sobre fuego, calor o tipos de cocina no califican.
+        if(rule.label==='Apto para horno' && !/\b(?:horno|oven)\b/i.test(String(m[0]||''))) continue;
+        const normalizedLabel = rule.label==='Apto para horno' ? ovenChipLabel(row) : rule.label;
+        const key=normalizedLabel.toLowerCase();
         if(emitted.has(key)) break;
         emitted.add(key);
         const inList=isInfoMatchInsideList(text,m[0]);
-        smartSuggestions.push({type:'unmapped',icon:'💡',rowIndex,sku,title:'Agregar Información Adicional',value:m[0],normalized:rule.label,source:f.name,category:rule.category,excerpt:excerptAround(text,m[0]),inList,status:'Sugerencia'});
+        smartSuggestions.push({type:'unmapped',icon:'💡',rowIndex,sku,title:'Agregar Información Adicional',value:m[0],normalized:normalizedLabel,source:f.name,category:rule.category,excerpt:excerptAround(text,m[0]),inList,status:'Sugerencia'});
         break;
       }
     }
@@ -1449,9 +1539,18 @@ function applySmartSuggestion(i,silent=false){
     setTecnologiasAplicadas(row,techs);
   }
   else if(s.type==='unmapped'){
-    const notas=getNotasProducto(row);
+    let notas=getNotasProducto(row);
     const valor=String(s.normalized||s.value||'').trim();
     if(valor && !notas.includes(valor)) notas.push(valor);
+    // Reglas de horno: el chip solo se conserva con evidencia explícita y,
+    // cuando existe temperatura, se normaliza a la versión específica (ej. hasta 200 °C).
+    if(valor==='Apto para todo tipo de cocinas' && !hasExplicitOvenEvidence(row)){
+      notas=notas.filter(v=>!/^Apto para horno/i.test(v));
+    }
+    if(/^Apto para horno/i.test(valor)){
+      notas=notas.filter(v=>!/^Apto para horno/i.test(v));
+      notas.push(ovenChipLabel(row));
+    }
     setNotasProducto(row,notas);
     // Si el dato provenía de una línea de lista, se elimina esa línea para evitar redundancia.
     // Si estaba dentro de un párrafo/contexto, el texto original se conserva.
@@ -1629,6 +1728,18 @@ function approveAllCareForSku(rowIndex){
 
 function renderSmartSuggestions(){ renderGroupedSuggestions(); }
 
+// Conserva el estado abierto/cerrado de cada menu aunque se vuelvan a renderizar las sugerencias.
+const suggestionSectionOpenState = {};
+function toggleSuggestionSection(sectionKey){
+  const d=document.getElementById('suggestionSection_'+sectionKey);
+  if(!d) return;
+  const isOpen=d.style.display!=='none';
+  suggestionSectionOpenState[sectionKey]=!isOpen;
+  d.style.display=isOpen?'none':'block';
+  const arrow=document.getElementById('suggestionArrow_'+sectionKey);
+  if(arrow) arrow.textContent=isOpen?'▸':'▾';
+}
+
 function renderGroupedSuggestions(){
   const root=document.getElementById('claimsResults');
   const smartRoot=document.getElementById('smartResults');
@@ -1702,20 +1813,22 @@ function renderGroupedSuggestions(){
   root.innerHTML=sections.map((sec,idx)=>{
     const pendingSec=sec.items.filter(x=>x.s.status==='Sugerencia').length;
     const reviewSec=sec.items.filter(x=>x.s.status==='Revisar').length;
-    const secId='suggestionSection_'+idx;
+    const secId='suggestionSection_'+sec.key;
+    // Por defecto se abre. Si el usuario lo cerro, ese estado se conserva tras aprobar, rechazar o reanalizar.
+    const isOpen = Object.prototype.hasOwnProperty.call(suggestionSectionOpenState,sec.key) ? suggestionSectionOpenState[sec.key] : true;
     const canBulk=sec.key!=='url' && pendingSec>0;
     const bulkBtn=canBulk
       ? `<button type="button" class="section-approve-btn" onclick="event.stopPropagation();approveAllInSection('${sec.key}')">✓ Aprobar todo</button>`
       : (sec.key==='url' ? `<button type="button" class="section-approve-btn" disabled>Solo revisión</button>` : '');
     return `<div class="suggestion-section">
       <div class="suggestion-section-head">
-        <button type="button" class="suggestion-section-toggle" onclick="const d=document.getElementById('${secId}'); d.style.display=d.style.display==='none'?'block':'none';">
+        <button type="button" class="suggestion-section-toggle" onclick="toggleSuggestionSection('${sec.key}')">
           <span>${sec.title}</span>
-          <span>${sec.items.length} ${sec.items.length===1?'hallazgo':'hallazgos'}${pendingSec?' · '+pendingSec+' aplicable'+(pendingSec===1?'':'s'):''}${reviewSec?' · '+reviewSec+' alerta'+(reviewSec===1?'':'s'):''} ▾</span>
+          <span>${sec.items.length} ${sec.items.length===1?'hallazgo':'hallazgos'}${pendingSec?' · '+pendingSec+' aplicable'+(pendingSec===1?'':'s'):''}${reviewSec?' · '+reviewSec+' alerta'+(reviewSec===1?'':'s'):''} <b id="suggestionArrow_${sec.key}">${isOpen?'▾':'▸'}</b></span>
         </button>
         <div class="section-head-actions">${bulkBtn}</div>
       </div>
-      <div id="${secId}" class="suggestion-section-body" style="display:block;">
+      <div id="${secId}" class="suggestion-section-body" style="display:${isOpen?'block':'none'};">
         ${(()=>{
           if(sec.key==='tech' || sec.key==='unmapped' || sec.key==='care'){
             const skuGroups=new Map();
@@ -2032,7 +2145,12 @@ const cta = metaDescripcion.trim(); // sin fallback
     botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
     const hayImagenDiferenciadora = !!(dif1 || dif2 || dif3);
     html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
-<div class='visual-id'>Ficha N° ${index + 1}</div>
+<div style='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;'>
+  <div class='visual-id' style='margin-bottom:0;'>Ficha N° ${index + 1}</div>
+  <label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#344054;cursor:pointer;'>
+    <input type='checkbox' style='width:16px;height:16px;accent-color:#173f5f;cursor:pointer;' ${exportSelection.has(index)?'checked':''} onchange='toggleExportSelection(${index}, this.checked)'> Exportar ficha
+  </label>
+</div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
@@ -2066,11 +2184,15 @@ ${!hayImagenDiferenciadora ? botonHTML : ''}`;
   html += '</div>';
   container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
   renderQualityPanel();
+  updateExportSelectionCount();
 }
-function exportHtmlToExcel() {
+function exportHtmlToExcel(mode = 'all') {
   if (!excelRows.length) return alert('❌ No hay datos cargados para exportar.');
+  const selectedMode = mode === 'selected';
+  if (selectedMode && !exportSelection.size) return alert('☑️ Selecciona al menos una ficha para exportar.');
   const data = [['SKU', 'Descripción Larga/Emocional']];
-  excelRows.forEach((row) => {
+  excelRows.forEach((row, rowIndex) => {
+    if (selectedMode && !exportSelection.has(rowIndex)) return;
     const sku = get(row, ['SKU']);
     const marcaRaw = get(row, ['Descripción de la Marca','Descripcion de la Marca','Descripción Marca']);
     const marca = String(marcaRaw || '').replace(/\u00A0/g, ' ').trim();
@@ -2148,12 +2270,15 @@ ${!hayImagenDiferenciadora ? botonHTML : ''}`;
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Descripciones');
-  XLSX.writeFile(wb, 'descripciones_largas_formato_html.xlsx');
+  const filename = selectedMode ? 'descripciones_largas_seleccionadas_html.xlsx' : 'descripciones_largas_todas_html.xlsx';
+  XLSX.writeFile(wb, filename);
 }
 function limpiarTodo() {
   document.getElementById('importFile').value = '';
   document.getElementById('tablesContainer').innerHTML = '<p>📂 Sin datos cargados.</p>';
   excelRows = [];
+  exportSelection.clear();
+  updateExportSelectionCount();
   claimSuggestions = [];
   const cp=document.getElementById('claimsPanel'); if(cp) cp.style.display='none';
   const qp=document.getElementById('qualityPanel'); if(qp){qp.style.display='none';qp.innerHTML='';}
