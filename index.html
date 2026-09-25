@@ -248,6 +248,35 @@ function renderTecnologiasChips(row){
   return `<div style='margin:10px 0 14px 0;'><div style='font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px;'>Tecnologías</div><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${items}</div></div>`;
 }
 
+function getNotasProducto(row){
+  const raw=String(row['Notas del Producto'] || row['Notas Producto'] || '').trim();
+  if(!raw) return [];
+  return raw.split('|').map(s=>s.trim()).filter(Boolean);
+}
+function setNotasProducto(row, arr){
+  row['Notas del Producto']=Array.from(new Set((arr||[]).filter(Boolean))).join(' | ');
+}
+function renderNotasProductoChips(row){
+  const notas=getNotasProducto(row);
+  if(!notas.length) return '';
+  const chips=notas.map(n=>`<span style='display:inline-flex;align-items:center;padding:6px 10px;margin:4px 6px 4px 0;border:1px solid #fdba74;border-radius:6px;background:#fff7ed;color:#c2410c;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;'>${n}</span>`).join('');
+  return `<div style='margin:10px 0 14px 0;'><div style='font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px;'>Características</div><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${chips}</div></div>`;
+}
+
+
+function getCuidadosUso(row){
+  const raw=String(row['Cuidados de Uso'] || row['Cuidados Uso'] || '').trim();
+  if(!raw) return [];
+  return raw.split('|').map(s=>s.trim()).filter(Boolean);
+}
+function setCuidadosUso(row,arr){ row['Cuidados de Uso']=Array.from(new Set((arr||[]).filter(Boolean))).join(' | '); }
+function renderCuidadosUsoChips(row){
+  const cuidados=getCuidadosUso(row);
+  if(!cuidados.length) return '';
+  const chips=cuidados.map(n=>`<span style='display:inline-flex;align-items:center;padding:6px 10px;margin:4px 6px 4px 0;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#475569;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;'>${n}</span>`).join('');
+  return `<div style='margin:10px 0 14px 0;'><div style='font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px;'>Cuidados de Uso</div><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${chips}</div></div>`;
+}
+
 
 function pickIconValues(row) {
   const raw = [
@@ -665,8 +694,8 @@ img { max-width: 100%; height: auto; }
 
 <style>
 .ai-panel{display:none;margin:20px;background:#fff;border:1px solid #d9e2ec;border-radius:8px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
-.ai-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.ai-note{font-size:12.5px;color:#667085}.ai-item{border:1px solid #e6eaf0;border-radius:8px;padding:12px;margin:10px 0;background:#fff}.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ai-box{border:1px solid #e6eaf0;border-radius:6px;padding:9px;white-space:pre-wrap;min-height:70px;background:#fff}.ai-label{font-weight:700;margin-bottom:5px}.ai-status{font-weight:700;color:#24364b;font-size:13px}.ai-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.ai-actions button{padding:6px 10px;margin:8px 0 0 0;font-size:12.5px;border-radius:5px;box-shadow:none}.ai-actions button:hover{transform:none;box-shadow:0 2px 6px rgba(0,0,0,.12)}.ai-loading{display:none;font-weight:700;color:#000273}.sku-card{border:1px solid #dfe5ec;border-radius:8px;overflow:hidden;margin:12px 0;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.05)}.sku-header{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;border:0;border-radius:0;padding:11px 14px;background:#173f5f;color:#fff;box-shadow:none;margin:0;font-size:13px}.sku-header:hover{transform:none;box-shadow:none;background:#143752}.sku-header-left{display:flex;align-items:center;gap:8px;min-width:0}.sku-title{font-weight:700;white-space:nowrap}.sku-copy{display:inline-flex;align-items:center;justify-content:center;padding:3px 7px!important;margin:0!important;font-size:11px!important;border:1px solid rgba(255,255,255,.38)!important;background:rgba(255,255,255,.12)!important;border-radius:4px!important;box-shadow:none!important}.sku-copy:hover{background:rgba(255,255,255,.2)!important}.sku-meta{font-size:12px;font-weight:600;opacity:.95;white-space:nowrap}.sku-body{padding:10px 12px 12px;background:#fbfcfd}.suggestions-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch}.suggestion-card{border:1px solid #e5e9ef;border-radius:7px;padding:11px 12px;margin:0;background:#fff;min-width:0;display:flex;flex-direction:column}.suggestion-head{display:flex;gap:10px;align-items:center}.suggestion-icon{width:34px;height:34px;object-fit:contain;flex:0 0 auto}.suggestion-content{flex:1;min-width:0}.suggestion-keyword{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:4px;background:#f2f4f7;color:#344054;font-size:12px;font-weight:600;max-width:100%;overflow-wrap:anywhere}.suggestion-status{margin-top:5px;font-size:11.5px;color:#667085}.suggestion-detail{margin-top:6px;font-size:11.5px;color:#667085;line-height:1.45}.suggestion-detail strong{color:#344054}.duplicate-text{margin-top:6px;padding:7px 8px;background:#f8fafc;border:1px solid #eaecf0;border-radius:5px;font-size:11.5px;color:#344054;line-height:1.4;overflow-wrap:anywhere}.bulk-sku-action{margin:0 0 10px}.bulk-sku-action button{padding:6px 10px;font-size:12px;margin:0;box-shadow:none}.review-only{font-size:11.5px;color:#667085;margin-top:7px;display:inline-block}.suggestion-card .ai-actions{margin-top:auto;padding-top:6px}@media(max-width:1200px){.suggestions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.ai-grid{grid-template-columns:1fr}.suggestions-grid{grid-template-columns:1fr}.sku-header{align-items:flex-start}.sku-meta{white-space:normal;text-align:right}}
-.suggestion-section{border:1px solid #dfe5ec;border-radius:9px;overflow:hidden;margin:12px 0;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.04)}.suggestion-section-head{width:100%;display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;column-gap:12px;row-gap:8px;text-align:left;border:0;border-radius:0;padding:10px 13px;background:#f5f7fa;color:#24364b;box-shadow:none;margin:0;font-size:13px;font-weight:700;box-sizing:border-box}.suggestion-section-head:hover{transform:none;box-shadow:none;background:#eef2f6}.suggestion-section-body{padding:10px 12px 12px}.suggestion-type-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.suggestion-mini-card{border:1px solid #e5e9ef;border-radius:7px;padding:10px 11px;background:#fff;display:flex;flex-direction:column;min-width:0}.suggestion-mini-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.suggestion-mini-sku{font-size:12px;font-weight:700;color:#24364b}.suggestion-mini-copy{padding:2px 6px!important;margin:0!important;font-size:10.5px!important;border-radius:4px!important;box-shadow:none!important;background:#eef2f6!important;color:#344054!important}.suggestion-mini-copy:hover{transform:none!important;box-shadow:none!important;background:#e4e9ef!important}.suggestion-mini-card .ai-actions{margin-top:auto;padding-top:6px}.suggestion-mini-select{display:flex;align-items:center;gap:6px;min-width:0}.suggestion-check{width:15px;height:15px;margin:0;accent-color:#173f5f;cursor:pointer;flex:0 0 auto}.suggestion-section-head{cursor:default}.suggestion-section-toggle{min-width:0;width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;border:0;background:transparent;color:#24364b;padding:0;margin:0;box-shadow:none;font-size:13px;font-weight:700;overflow:hidden}.suggestion-section-toggle>span:first-child{flex:1 1 auto;min-width:0}.suggestion-section-toggle>span:last-child{flex:0 1 auto;min-width:0;white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}.section-head-actions{flex:0 0 auto;min-width:max-content;justify-self:end}.section-approve-btn{min-width:max-content!important;max-width:none!important;overflow:visible!important;text-overflow:clip!important}.suggestion-section-toggle:hover{transform:none;box-shadow:none;background:transparent}.section-approve-btn{padding:4px 8px!important;margin:0!important;font-size:11px!important;border-radius:4px!important;box-shadow:none!important;white-space:nowrap;background:#173f5f!important}.section-approve-btn:hover{transform:none!important;box-shadow:none!important;background:#143752!important}.section-approve-btn:disabled{background:#c9d1da!important;color:#fff!important;cursor:default!important}.section-head-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:max-content;justify-self:end}@media(max-width:1200px){.suggestion-type-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:900px){.suggestion-section-head{grid-template-columns:1fr}.section-head-actions{justify-self:start}.suggestion-section-toggle>span:last-child{white-space:normal;overflow:visible;text-overflow:clip}}@media(max-width:800px){.suggestion-type-grid{grid-template-columns:1fr}}
+.ai-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.ai-note{font-size:12.5px;color:#667085}.ai-item{border:1px solid #e6eaf0;border-radius:8px;padding:12px;margin:10px 0;background:#fff}.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ai-box{border:1px solid #e6eaf0;border-radius:6px;padding:9px;white-space:pre-wrap;min-height:70px;background:#fff}.ai-label{font-weight:700;margin-bottom:5px}.ai-status{font-weight:700;color:#24364b;font-size:13px}.ai-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.ai-actions button{padding:6px 10px;margin:8px 0 0 0;font-size:12.5px;border-radius:5px;box-shadow:none}.ai-actions button:hover{transform:none;box-shadow:0 2px 6px rgba(0,0,0,.12)}.ai-loading{display:none;font-weight:700;color:#000273}.sku-card{border:1px solid #dfe5ec;border-radius:8px;overflow:hidden;margin:12px 0;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.05)}.sku-header{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;border:0;border-radius:0;padding:11px 14px;background:#173f5f;color:#fff;box-shadow:none;margin:0;font-size:13px}.sku-header:hover{transform:none;box-shadow:none;background:#143752}.sku-header-left{display:flex;align-items:center;gap:8px;min-width:0}.sku-title{font-weight:700;white-space:nowrap}.sku-copy{display:inline-flex;align-items:center;justify-content:center;padding:3px 7px!important;margin:0!important;font-size:11px!important;border:1px solid rgba(255,255,255,.38)!important;background:rgba(255,255,255,.12)!important;border-radius:4px!important;box-shadow:none!important}.sku-copy:hover{background:rgba(255,255,255,.2)!important}.sku-meta{font-size:12px;font-weight:600;opacity:.95;white-space:nowrap}.sku-body{padding:10px 12px 12px;background:#fbfcfd}.suggestions-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}.suggestion-card{border:1px solid #e5e9ef;border-radius:7px;padding:11px 12px;margin:0;background:#fff;min-width:0;display:flex;flex-direction:column}.suggestion-head{display:flex;gap:10px;align-items:center}.suggestion-icon{width:34px;height:34px;object-fit:contain;flex:0 0 auto}.suggestion-content{flex:1;min-width:0}.suggestion-keyword{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:4px;background:#f2f4f7;color:#344054;font-size:12px;font-weight:600;max-width:100%;overflow-wrap:anywhere}.suggestion-status{margin-top:5px;font-size:11.5px;color:#667085}.suggestion-detail{margin-top:6px;font-size:11.5px;color:#667085;line-height:1.45}.suggestion-detail strong{color:#344054}.duplicate-text{margin-top:6px;padding:7px 8px;background:#f8fafc;border:1px solid #eaecf0;border-radius:5px;font-size:11.5px;color:#344054;line-height:1.4;overflow-wrap:anywhere}.bulk-sku-action{margin:0 0 10px}.bulk-sku-action button{padding:6px 10px;font-size:12px;margin:0;box-shadow:none}.review-only{font-size:11.5px;color:#667085;margin-top:7px;display:inline-block}.suggestion-card .ai-actions{margin-top:auto;padding-top:6px}@media(max-width:1200px){.suggestions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.ai-grid{grid-template-columns:1fr}.suggestions-grid{grid-template-columns:1fr}.sku-header{align-items:flex-start}.sku-meta{white-space:normal;text-align:right}}
+.suggestion-section{border:1px solid #dfe5ec;border-radius:9px;overflow:hidden;margin:12px 0;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.04)}.suggestion-section-head{width:100%;display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;column-gap:12px;row-gap:8px;text-align:left;border:0;border-radius:0;padding:10px 13px;background:#f5f7fa;color:#24364b;box-shadow:none;margin:0;font-size:13px;font-weight:700;box-sizing:border-box}.suggestion-section-head:hover{transform:none;box-shadow:none;background:#eef2f6}.suggestion-section-body{padding:10px 12px 12px}.suggestion-type-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.suggestion-mini-card{border:1px solid #e5e9ef;border-radius:7px;padding:10px 11px;background:#fff;display:flex;flex-direction:column;min-width:0}.suggestion-mini-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.suggestion-mini-sku{font-size:12px;font-weight:700;color:#24364b}.suggestion-mini-copy{padding:2px 6px!important;margin:0!important;font-size:10.5px!important;border-radius:4px!important;box-shadow:none!important;background:#eef2f6!important;color:#344054!important}.suggestion-mini-copy:hover{transform:none!important;box-shadow:none!important;background:#e4e9ef!important}.suggestion-mini-card .ai-actions{margin-top:auto;padding-top:6px}.suggestion-mini-select{display:flex;align-items:center;gap:6px;min-width:0}.suggestion-check{width:15px;height:15px;margin:0;accent-color:#173f5f;cursor:pointer;flex:0 0 auto}.suggestion-section-head{cursor:default}.suggestion-section-toggle{min-width:0;width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;border:0;background:transparent;color:#24364b;padding:0;margin:0;box-shadow:none;font-size:13px;font-weight:700;overflow:hidden}.suggestion-section-toggle>span:first-child{flex:1 1 auto;min-width:0}.suggestion-section-toggle>span:last-child{flex:0 1 auto;min-width:0;white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis}.section-head-actions{flex:0 0 auto;min-width:max-content;justify-self:end}.section-approve-btn{min-width:max-content!important;max-width:none!important;overflow:visible!important;text-overflow:clip!important}.suggestion-section-toggle:hover{transform:none;box-shadow:none;background:transparent}.section-approve-btn{padding:4px 8px!important;margin:0!important;font-size:11px!important;border-radius:4px!important;box-shadow:none!important;white-space:nowrap;background:#173f5f!important}.section-approve-btn:hover{transform:none!important;box-shadow:none!important;background:#143752!important}.section-approve-btn:disabled{background:#c9d1da!important;color:#fff!important;cursor:default!important}.section-head-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:max-content;justify-self:end}@media(max-width:1200px){.suggestion-type-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:900px){.suggestion-section-head{grid-template-columns:1fr}.section-head-actions{justify-self:start}.suggestion-section-toggle>span:last-child{white-space:normal;overflow:visible;text-overflow:clip}}@media(max-width:800px){.suggestion-type-grid{grid-template-columns:1fr}}
 
 
 /* === Agrupación secundaria por sugerencia === */
@@ -681,10 +710,54 @@ img { max-width: 100%; height: auto; }
 @media(max-width:800px){.suggestion-subgroup-head{align-items:flex-start;flex-wrap:wrap}.suggestion-subgroup-actions{width:100%;justify-content:flex-start}.suggestion-subgroup-meta{white-space:normal}}
 .tech-sku-group{border:1px solid #e6eaf0;border-radius:7px;margin:10px 0;background:#fbfcfd;overflow:hidden}.tech-sku-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:#eef2f6;border-bottom:1px solid #e1e6ec}.tech-sku-title{font-size:12.5px;font-weight:700;color:#24364b}.tech-sku-body{padding:9px}.tech-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tech-item{border:1px solid #e5e9ef;border-radius:7px;padding:9px 10px;background:#fff;display:flex;flex-direction:column;min-width:0}.tech-chip-preview{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #d1d5db;border-radius:16px;background:#f8f9fa;color:#374151;font-size:11.5px;font-weight:700;width:max-content;max-width:100%}.tech-desc-preview{margin-top:6px;font-size:11.5px;line-height:1.4;color:#667085}.tech-sku-actions{display:flex;align-items:center;gap:7px}.tech-sku-approve{padding:3px 7px!important;margin:0!important;font-size:10.5px!important;border-radius:4px!important;box-shadow:none!important;white-space:nowrap;background:#355f7d!important}@media(max-width:800px){.tech-list{grid-template-columns:1fr}.tech-sku-head{align-items:flex-start;flex-wrap:wrap}.tech-sku-actions{width:100%}}
 
+
+/* === Información adicional: vista compacta por SKU === */
+.info-list{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px}
+.info-list .tech-item{padding:8px 9px;min-height:104px}
+.info-list .suggestion-mini-select{align-items:flex-start}
+.info-list .info-unmapped-tag{line-height:1.25}
+.info-list .suggestion-status{font-size:10.5px;margin-top:6px;line-height:1.25}
+.info-icon-actions{gap:6px!important;margin-top:auto;padding-top:7px!important}
+.info-action-btn{width:30px!important;height:30px!important;min-width:30px!important;padding:0!important;margin:0!important;border-radius:6px!important;box-shadow:none!important;font-size:17px!important;font-weight:800!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+.info-action-btn:hover{transform:none!important;box-shadow:none!important}
+.info-approve-btn{background:#ecfdf3!important;color:#067647!important;border:1px solid #abefc6!important}
+.info-approve-btn:hover{background:#dcfae6!important}
+.info-reject-btn{background:#fef3f2!important;color:#b42318!important;border:1px solid #fecdca!important}
+.info-reject-btn:hover{background:#fee4e2!important}
+@media(max-width:1400px){.info-list{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media(max-width:1050px){.info-list{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){.info-list{grid-template-columns:1fr!important}}
+
+
+/* === UX: Semáforo de calidad + vista previa responsive === */
+.quality-panel{display:none;margin:20px;background:#fff;border:1px solid #dfe5ec;border-radius:9px;padding:18px 20px;box-shadow:0 1px 4px rgba(16,24,40,.05)}
+.quality-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.quality-head h2{margin:0;border:0;padding:0}.quality-summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.quality-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;font-size:12px;font-weight:700;color:#344054}.quality-dot{width:9px;height:9px;border-radius:50%;display:inline-block}.quality-green{background:#22a06b}.quality-yellow{background:#f5a524}.quality-red{background:#d92d20}.quality-overall{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:7px;background:#f8fafc;border:1px solid #e5e7eb;font-size:12.5px;font-weight:700}.quality-details{margin-top:12px;border-top:1px solid #eef1f4;padding-top:10px}.quality-details summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#344054}.quality-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.quality-sku{border:1px solid #e5e9ef;border-radius:7px;padding:9px 10px;background:#fff;min-width:0}.quality-sku-top{display:flex;justify-content:space-between;gap:8px;align-items:center}.quality-status{font-size:11px;font-weight:700;white-space:nowrap}.quality-reasons{margin-top:6px;font-size:11.5px;color:#667085;line-height:1.45}.quality-reasons div+div{margin-top:3px}
+.preview-card{margin:20px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.08)}.preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:2px 2px 12px;border-bottom:1px solid #e8edf2;margin-bottom:12px}.preview-toolbar-title{font-size:13px;font-weight:700;color:#344054}.preview-mode-actions{display:flex;gap:6px}.preview-mode-btn{padding:6px 10px!important;margin:0!important;font-size:12px!important;border-radius:5px!important;box-shadow:none!important;background:#eef2f6!important;color:#344054!important;border:1px solid #d7dee7!important}.preview-mode-btn.active{background:#173f5f!important;color:#fff!important;border-color:#173f5f!important}.preview-mode-btn:hover{transform:none!important;box-shadow:none!important}.preview-viewport{width:100%;margin:0 auto;transition:max-width .2s ease}.preview-viewport.preview-mobile{max-width:390px;border:1px solid #d8dee6;border-radius:14px;padding:8px;background:#f8fafc}.preview-viewport.preview-mobile #tablesContainer{margin:0!important;padding:8px!important}.preview-viewport.preview-mobile .easy-ficha-wrapper{display:block!important}.preview-viewport.preview-mobile .easy-ficha-wrapper>div{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.preview-viewport.preview-mobile table{width:100%!important;table-layout:auto!important}.preview-viewport.preview-mobile table td{max-width:none!important;white-space:normal!important;overflow-wrap:anywhere!important}
+.info-unmapped-tag{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:4px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:700;border:1px solid #fed7aa}
+@media(max-width:1100px){.quality-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.quality-grid{grid-template-columns:1fr}.preview-toolbar{align-items:flex-start}.preview-mode-actions{width:100%}}
+
 /* === Ficha técnica: ajuste automático al contenido === */
 .easy-ficha-wrapper table { table-layout:auto !important; }
 .easy-ficha-wrapper table td { max-width:none !important; overflow:visible !important; white-space:normal !important; overflow-wrap:anywhere; }
 
+</style>
+
+<style>
+/* v24: 4 tarjetas por fila en Información Adicional y Cuidados de Uso */
+.info-sku-items, .care-sku-items, .info-compact-grid, .care-compact-grid, .sku-suggestion-items {
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+@media(max-width:1200px){
+  .info-sku-items, .care-sku-items, .info-compact-grid, .care-compact-grid, .sku-suggestion-items {grid-template-columns:repeat(3,minmax(0,1fr)) !important;}
+}
+@media(max-width:900px){
+  .info-sku-items, .care-sku-items, .info-compact-grid, .care-compact-grid, .sku-suggestion-items {grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+}
+@media(max-width:600px){
+  .info-sku-items, .care-sku-items, .info-compact-grid, .care-compact-grid, .sku-suggestion-items {grid-template-columns:1fr !important;}
+}
 </style>
 </head>
 <body>
@@ -714,7 +787,17 @@ img { max-width: 100%; height: auto; }
 <button onclick="limpiarTodo()">🧹 Limpiar Todo</button>
 <input accept=".xlsx" id="importFile" onchange="importExcel()" type="file"/>
 </div>
-<div class="card" id="tablesContainer"></div>
+<div class="quality-panel" id="qualityPanel"></div>
+<div class="preview-card">
+  <div class="preview-toolbar">
+    <div class="preview-toolbar-title">👁️ Vista previa de ficha</div>
+    <div class="preview-mode-actions">
+      <button type="button" id="previewDesktopBtn" class="preview-mode-btn active" onclick="setPreviewMode('desktop')">🖥 Desktop</button>
+      <button type="button" id="previewMobileBtn" class="preview-mode-btn" onclick="setPreviewMode('mobile')">📱 Mobile</button>
+    </div>
+  </div>
+  <div id="previewViewport" class="preview-viewport preview-desktop"><div id="tablesContainer"><p>📂 Sin datos cargados.</p></div></div>
+</div>
 <div class="ai-panel" id="claimsPanel">
 <h2>✨ Sugerencias automáticas</h2>
 <div class="ai-toolbar">
@@ -722,7 +805,7 @@ img { max-width: 100%; height: auto; }
 <button onclick="applySelectedSuggestions()">✓ Aprobar seleccionados</button>
 <span class="ai-loading" id="claimsLoading">Analizando…</span>
 </div>
-<div class="ai-note">Se revisa el contenido del producto y las sugerencias se agrupan por tipo: <strong>Claims/Iconos</strong>, <strong>Tecnologías</strong>, <strong>Material y Dimensiones</strong> y <strong>URLs</strong>. Los cambios solo se aplican cuando presionas Aceptar.</div>
+<div class="ai-note">Se revisa el contenido del producto y las sugerencias se agrupan por tipo: <strong>Claims/Iconos</strong>, <strong>Tecnologías</strong>, <strong>Agregar Información Adicional</strong>, <strong>Cuidados de Uso</strong> y <strong>URLs</strong>. Los cambios solo se aplican cuando presionas Aceptar.</div>
 <div id="claimsSummary" class="ai-note" style="margin-top:10px;font-weight:700;"></div>
 <div id="claimsResults"></div><div id="smartResults"></div>
 </div>
@@ -746,6 +829,9 @@ function importExcel() {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     excelRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
     if (!excelRows.length) return alert('❌ No se encontraron filas en el Excel.');
+    detectClaims();
+    detectSmartSuggestions();
+    renderQualityPanel();
     alert('📁 Excel cargado correctamente. Puedes visualizar las tablas.');
   };
   reader.readAsArrayBuffer(file);
@@ -1023,6 +1109,292 @@ function detectDuplicates(row,rowIndex,sku){
   }
 }
 
+
+// === Información útil detectada sin campo asociado ===
+// Se muestran como sugerencias aplicables y, al aprobarlas, se agregan como chips bajo 'Características'.
+// Diccionario controlado de Características por categoría.
+// Una regla solo se evalúa cuando el producto coincide con su categoría (salvo las reglas globales).
+const INFO_SIN_CAMPO_CATEGORIES = [
+  {category:'General',hints:[],rules:[
+    {label:'Reciclable',patterns:[/\breciclable\b/i]},
+    {label:'Hipoalergénico',patterns:[/\bhipoalerg[eé]nic[oa]s?\b/i]},
+    {label:'Antibacteriano',patterns:[/\bantibacterian[oa]s?\b/i,/\bantimicrobian[oa]s?\b/i]},
+    {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}
+  ]},
+  {category:'Cocina y Menaje',hints:['cocina','menaje','vaso','copa','plato','taza','botella','termo','contenedor','tupper','sartén','sarten','olla','fuente','bowl','bandeja','cubierto','cuchillo','jarra','molde','repostería','reposteria','vajilla','cristalería','cristaleria'],rules:[
+    {label:'Libre de BPA',patterns:[/\blibre\s+de\s+bpa\b/i,/\bsin\s+bpa\b/i,/\bbpa\s*[- ]?free\b/i]},
+    {label:'Apto para lavavajillas',patterns:[/\bapto\s+para\s+(?:el\s+)?lavavajillas\b/i,/\bse\s+puede\s+lavar\s+en\s+(?:el\s+)?lavavajillas\b/i,/\bdishwasher\s+safe\b/i]},
+    {label:'Apto para microondas',patterns:[/\bapto\s+para\s+(?:el\s+)?microondas\b/i,/\bmicrowave\s+safe\b/i]},
+    {label:'Apto para horno',patterns:[/\bapto\s+para\s+(?:el\s+)?horno\b/i,/\boven\s+safe\b/i]},
+    {label:'Apto para freezer',patterns:[/\bapto\s+para\s+(?:el\s+)?freezer\b/i,/\bapto\s+para\s+congelador\b/i,/\bfreezer\s+safe\b/i]},
+    {label:'Apto para alimentos',patterns:[/\bapto\s+para\s+(?:el\s+)?contacto\s+con\s+alimentos\b/i,/\bapto\s+para\s+alimentos\b/i]},
+    {label:'Antiadherente',patterns:[/\bantiadherente(?:s)?\b/i,/\bnon\s*[- ]?stick\b/i]},
+    {label:'Hermético',patterns:[/\bherm[eé]tic[oa]s?\b/i,/\bcierre\s+herm[eé]tico\b/i]},
+    {label:'Apilable',patterns:[/\bapilable(?:s)?\b/i]}
+  ]},
+  {category:'Vestuario',hints:['vestuario','ropa','polera','camisa','blusa','pantalón','pantalon','jeans','chaqueta','parka','polerón','poleron','vestido','falda','short','calza','sweater','chaleco','pijama','traje de baño','traje de bano'],rules:[
+    {label:'Secado rápido',patterns:[/\bsecado\s+r[aá]pido\b/i,/\bquick\s*[- ]?dry\b/i]}, {label:'Transpirable',patterns:[/\btranspirable(?:s)?\b/i,/\brespirable(?:s)?\b/i,/\bbreathable\b/i]},
+    {label:'Protección UV',patterns:[/\bprotecci[oó]n\s+(?:solar\s+)?uv\b/i,/\bprotecci[oó]n\s+upf\b/i,/\bupf\s*\d+\+?\b/i]}, {label:'Elasticado',patterns:[/\belasticad[oa]s?\b/i,/\btejido\s+el[aá]stico\b/i,/\bstretch\b/i]},
+    {label:'Térmico',patterns:[/\bt[eé]rmic[oa]s?\b/i,/\baislamiento\s+t[eé]rmico\b/i]}, {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Repelente al agua',patterns:[/\brepelente\s+al\s+agua\b/i,/\bwater\s*[- ]?repellent\b/i]}
+  ]},
+  {category:'Calzado',hints:['calzado','zapatilla','zapato','bototo','bota','sandalia','mocasín','mocasin','zueco','pantufla'],rules:[
+    {label:'Antideslizante',patterns:[/\bantideslizante(?:s)?\b/i,/\banti\s*[- ]?deslizante(?:s)?\b/i,/\bnon\s*[- ]?slip\b/i]}, {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Repelente al agua',patterns:[/\brepelente\s+al\s+agua\b/i,/\bwater\s*[- ]?repellent\b/i]}, {label:'Transpirable',patterns:[/\btranspirable(?:s)?\b/i,/\bbreathable\b/i]}, {label:'Plantilla removible',patterns:[/\bplantilla\s+(?:interior\s+)?removible\b/i,/\bplantilla\s+extra[ií]ble\b/i]}, {label:'Plantilla acolchada',patterns:[/\bplantilla\s+acolchada\b/i]}, {label:'Suela flexible',patterns:[/\bsuela\s+flexible\b/i]}
+  ]},
+  {category:'Textil Hogar / Dormitorio / Baño',hints:['textil hogar','dormitorio','ropa de cama','sábana','sabana','frazada','plumón','plumon','cubrecama','almohada','toalla','baño','bano','cortina de baño','protector colchón','protector colchon'],rules:[
+    {label:'Hipoalergénico',patterns:[/\bhipoalerg[eé]nic[oa]s?\b/i]}, {label:'Antibacteriano',patterns:[/\bantibacterian[oa]s?\b/i,/\bantimicrobian[oa]s?\b/i]}, {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Absorbente',patterns:[/\babsorbente(?:s)?\b/i]}, {label:'Secado rápido',patterns:[/\bsecado\s+r[aá]pido\b/i,/\bquick\s*[- ]?dry\b/i]}, {label:'Reversible',patterns:[/\breversible(?:s)?\b/i]}, {label:'Relleno removible',patterns:[/\brelleno\s+(?:removible|extra[ií]ble)\b/i]}
+  ]},
+  {category:'Muebles y Hogar',hints:['mueble','hogar','silla','mesa','sofá','sofa','rack','escritorio','estante','repisa','cama','colchón','colchon','terraza','organizador','closet','armario','banqueta','pouf'],rules:[
+    {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Apilable',patterns:[/\bapilable(?:s)?\b/i]}, {label:'Reclinable',patterns:[/\breclinable(?:s)?\b/i]}, {label:'Extensible',patterns:[/\bextensible(?:s)?\b/i]}, {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Uso interior',patterns:[/\buso\s+(?:en\s+)?interior(?:es)?\b/i]}, {label:'Uso exterior',patterns:[/\buso\s+(?:en\s+)?exterior(?:es)?\b/i,/\bapto\s+para\s+exterior(?:es)?\b/i]}, {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}, {label:'Altura regulable',patterns:[/\baltura\s+(?:regulable|ajustable)\b/i]}
+  ]},
+  {category:'Maletas, Mochilas y Bolsos',hints:['maleta','mochila','bolso','equipaje','carry on','cartera'],rules:[
+    {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Repelente al agua',patterns:[/\brepelente\s+al\s+agua\b/i,/\bwater\s*[- ]?repellent\b/i]}, {label:'Expandible',patterns:[/\bexpandible(?:s)?\b/i,/\bexpandable\b/i]}, {label:'Compartimento para notebook',patterns:[/\bcompartimento\s+(?:para\s+)?(?:notebook|laptop)\b/i]}, {label:'Correas ajustables',patterns:[/\bcorreas?\s+ajustables?\b/i]}, {label:'Ruedas 360°',patterns:[/\bruedas?\s+(?:de\s+)?360\s*(?:°|grados)?\b/i]}, {label:'Equipaje de cabina',patterns:[/\bequipaje\s+de\s+cabina\b/i,/\bcabin\s+(?:size|luggage)\b/i]}
+  ]},
+  {category:'Belleza y Cuidado Personal',hints:['belleza','cosmética','cosmetica','skincare','cuidado personal','crema','serum','sérum','shampoo','acondicionador','maquillaje','labial','máscara','mascara','protector solar','loción','locion'],rules:[
+    {label:'Hipoalergénico',patterns:[/\bhipoalerg[eé]nic[oa]s?\b/i]}, {label:'Dermatológicamente probado',patterns:[/\bdermatol[oó]gicamente\s+probad[oa]\b/i,/\bprobado\s+dermatol[oó]gicamente\b/i]}, {label:'Sin fragancia',patterns:[/\bsin\s+fragancia(?:s)?\b/i,/\bfragrance\s*[- ]?free\b/i]}, {label:'No comedogénico',patterns:[/\bno\s+comedog[eé]nic[oa]\b/i,/\bnon\s*[- ]?comedogenic\b/i]}, {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}
+  ]},
+  {category:'Perfumería',hints:['perfume','perfumería','perfumeria','eau de parfum','eau de toilette','colonia','fragancia'],rules:[
+    {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i,/\brefillable\b/i]}, {label:'Vaporizador',patterns:[/\bvaporizador\b/i,/\bspray\b/i]}, {label:'Formato viaje',patterns:[/\bformato\s+(?:de\s+)?viaje\b/i,/\btravel\s+size\b/i]}
+  ]},
+  {category:'Bebé e Infantil',hints:['bebé','bebe','infantil','niño','niña','mamadera','chupete','coche','silla de auto','mudador','pañal','panal'],rules:[
+    {label:'Libre de BPA',patterns:[/\blibre\s+de\s+bpa\b/i,/\bsin\s+bpa\b/i,/\bbpa\s*[- ]?free\b/i]}, {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Hipoalergénico',patterns:[/\bhipoalerg[eé]nic[oa]s?\b/i]}, {label:'Altura regulable',patterns:[/\baltura\s+(?:regulable|ajustable)\b/i]}
+  ]},
+  {category:'Juguetería',hints:['juguete','juguetería','jugueteria','muñeca','muneca','figura de acción','figura de accion','juego infantil','puzzle','rompecabezas'],rules:[
+    {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Uso interior',patterns:[/\buso\s+(?:en\s+)?interior(?:es)?\b/i]}, {label:'Uso exterior',patterns:[/\buso\s+(?:en\s+)?exterior(?:es)?\b/i]}, {label:'Requiere pilas',patterns:[/\brequiere\s+pilas?\b/i,/\bpilas?\s+no\s+incluidas?\b/i]}, {label:'Pilas incluidas',patterns:[/\bpilas?\s+incluidas?\b/i]}
+  ]},
+  {category:'Deportes y Outdoor',hints:['deporte','outdoor','trekking','camping','running','fitness','entrenamiento','carpa','saco de dormir','senderismo'],rules:[
+    {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Repelente al agua',patterns:[/\brepelente\s+al\s+agua\b/i,/\bwater\s*[- ]?repellent\b/i]}, {label:'Secado rápido',patterns:[/\bsecado\s+r[aá]pido\b/i,/\bquick\s*[- ]?dry\b/i]}, {label:'Transpirable',patterns:[/\btranspirable(?:s)?\b/i,/\bbreathable\b/i]}, {label:'Protección UV',patterns:[/\bprotecci[oó]n\s+(?:solar\s+)?uv\b/i,/\bprotecci[oó]n\s+upf\b/i,/\bupf\s*\d+\+?\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Reflectante',patterns:[/\breflectante(?:s)?\b/i,/\breflective\b/i]}, {label:'Ajustable',patterns:[/\bajustable(?:s)?\b/i]}
+  ]},
+  {category:'Tecnología / Electrónica',hints:['tecnología','tecnologia','electrónica','electronica','audífono','audifono','parlante','gadget'],rules:[
+    {label:'Inalámbrico',patterns:[/\binal[aá]mbric[oa]s?\b/i,/\bwireless\b/i]}, {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i]}, {label:'Carga rápida',patterns:[/\bcarga\s+r[aá]pida\b/i,/\bfast\s+charg(?:e|ing)\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}, {label:'Cancelación de ruido',patterns:[/\bcancelaci[oó]n\s+(?:activa\s+)?de\s+ruido\b/i,/\bnoise\s+cancell?ing\b/i]}, {label:'Micrófono integrado',patterns:[/\bmicr[oó]fono\s+integrado\b/i,/\bbuilt\s*[- ]?in\s+microphone\b/i]}
+  ]},
+  {category:'Celulares y Accesorios',hints:['celular','smartphone','teléfono','telefono','carcasa','funda','cargador','power bank'],rules:[
+    {label:'Carga rápida',patterns:[/\bcarga\s+r[aá]pida\b/i,/\bfast\s+charg(?:e|ing)\b/i]}, {label:'Carga inalámbrica',patterns:[/\bcarga\s+inal[aá]mbrica\b/i,/\bwireless\s+charg(?:e|ing)\b/i]}, {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}, {label:'Compatible con carga inalámbrica',patterns:[/\bcompatible\s+con\s+carga\s+inal[aá]mbrica\b/i]}, {label:'Magnético',patterns:[/\bmagn[eé]tic[oa]s?\b/i,/\bmagsafe\b/i]}
+  ]},
+  {category:'Computación',hints:['computación','computacion','notebook','laptop','teclado','mouse','monitor','webcam','gaming'],rules:[
+    {label:'Inalámbrico',patterns:[/\binal[aá]mbric[oa]s?\b/i,/\bwireless\b/i]}, {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i]}, {label:'Retroiluminado',patterns:[/\bretroiluminad[oa]s?\b/i,/\bbacklit\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Micrófono integrado',patterns:[/\bmicr[oó]fono\s+integrado\b/i]}, {label:'Cancelación de ruido',patterns:[/\bcancelaci[oó]n\s+(?:activa\s+)?de\s+ruido\b/i,/\bnoise\s+cancell?ing\b/i]}
+  ]},
+  {category:'Audio',hints:['audio','audífono','audifono','parlante','speaker','auricular','soundbar','barra de sonido'],rules:[
+    {label:'Inalámbrico',patterns:[/\binal[aá]mbric[oa]s?\b/i,/\bwireless\b/i]}, {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i]}, {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}, {label:'Cancelación de ruido',patterns:[/\bcancelaci[oó]n\s+(?:activa\s+)?de\s+ruido\b/i,/\bnoise\s+cancell?ing\b/i]}, {label:'Micrófono integrado',patterns:[/\bmicr[oó]fono\s+integrado\b/i]}, {label:'Manos libres',patterns:[/\bmanos\s+libres\b/i,/\bhands\s*[- ]?free\b/i]}
+  ]},
+  {category:'Electrodomésticos Cocina',hints:['licuadora','cafetera','freidora','air fryer','horno eléctrico','horno electrico','tostador','sandwichera','waflera','batidora','procesador de alimentos','hervidor'],rules:[
+    {label:'Antiadherente',patterns:[/\bantiadherente(?:s)?\b/i,/\bnon\s*[- ]?stick\b/i]}, {label:'Piezas desmontables',patterns:[/\bpiezas?\s+desmontables?\b/i]}, {label:'Piezas aptas para lavavajillas',patterns:[/\bpiezas?\s+aptas?\s+para\s+(?:el\s+)?lavavajillas\b/i]}, {label:'Apagado automático',patterns:[/\bapagado\s+autom[aá]tico\b/i,/\bauto\s*[- ]?off\b/i]}, {label:'Temperatura regulable',patterns:[/\btemperatura\s+(?:regulable|ajustable)\b/i]}, {label:'Temporizador',patterns:[/\btemporizador\b/i,/\btimer\b/i]}
+  ]},
+  {category:'Línea Blanca / Electrohogar',hints:['línea blanca','linea blanca','electrohogar','lavadora','secadora','lavavajillas','refrigerador','congelador','freezer','cocina a gas','encimera'],rules:[
+    {label:'Inicio diferido',patterns:[/\binicio\s+diferido\b/i,/\bdelay(?:ed)?\s+start\b/i]}, {label:'Bloqueo para niños',patterns:[/\bbloqueo\s+(?:para\s+)?niñ[oa]s\b/i,/\bchild\s+lock\b/i]}, {label:'Temperatura regulable',patterns:[/\btemperatura\s+(?:regulable|ajustable)\b/i]}, {label:'Apagado automático',patterns:[/\bapagado\s+autom[aá]tico\b/i,/\bauto\s*[- ]?off\b/i]}, {label:'Función autolimpieza',patterns:[/\bfunci[oó]n\s+autolimpieza\b/i,/\bautolimpieza\b/i,/\bself\s*[- ]?clean(?:ing)?\b/i]}
+  ]},
+  {category:'Automotriz',hints:['automotriz','auto','vehículo','vehiculo','cubre asiento','organizador auto','alfombra auto'],rules:[
+    {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Antideslizante',patterns:[/\bantideslizante(?:s)?\b/i,/\bnon\s*[- ]?slip\b/i]}, {label:'Ajustable',patterns:[/\bajustable(?:s)?\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}
+  ]},
+  {category:'Ferretería / Herramientas',hints:['ferretería','ferreteria','herramienta','taladro','atornillador','sierra','esmeril','lijadora'],rules:[
+    {label:'Inalámbrico',patterns:[/\binal[aá]mbric[oa]s?\b/i,/\bwireless\b/i]}, {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i]}, {label:'Velocidad regulable',patterns:[/\bvelocidad\s+(?:regulable|variable|ajustable)\b/i]}, {label:'Mango antideslizante',patterns:[/\bmango\s+antideslizante\b/i]}, {label:'Uso interior',patterns:[/\buso\s+(?:en\s+)?interior(?:es)?\b/i]}, {label:'Uso exterior',patterns:[/\buso\s+(?:en\s+)?exterior(?:es)?\b/i]}
+  ]},
+  {category:'Mascotas',hints:['mascota','perro','gato','pet','comedero','bebedero','arnés','arnes','correa','cama mascota'],rules:[
+    {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Antideslizante',patterns:[/\bantideslizante(?:s)?\b/i,/\banti\s*[- ]?deslizante(?:s)?\b/i]}, {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Ajustable',patterns:[/\bajustable(?:s)?\b/i]}, {label:'Reflectante',patterns:[/\breflectante(?:s)?\b/i,/\breflective\b/i]}
+  ]},
+  {category:'Relojería',hints:['reloj','relojería','relojeria','smartwatch'],rules:[
+    {label:'Resistente al agua',patterns:[/\bresistente\s+al\s+agua\b/i,/\bwater\s*[- ]?resistant\b/i]}, {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i]}, {label:'Correa intercambiable',patterns:[/\bcorrea\s+intercambiable\b/i]}, {label:'Pantalla táctil',patterns:[/\bpantalla\s+t[aá]ctil\b/i,/\btouchscreen\b/i]}
+  ]},
+  {category:'Accesorios Moda',hints:['accesorios moda','cinturón','cinturon','gorro','jockey','sombrero','bufanda','guante','paraguas'],rules:[
+    {label:'Ajustable',patterns:[/\bajustable(?:s)?\b/i]}, {label:'Reversible',patterns:[/\breversible(?:s)?\b/i]}, {label:'Impermeable',patterns:[/\bimpermeable(?:s)?\b/i,/\bwaterproof\b/i]}, {label:'Repelente al agua',patterns:[/\brepelente\s+al\s+agua\b/i,/\bwater\s*[- ]?repellent\b/i]}
+  ]}
+];
+
+const INFO_SIN_CAMPO_RULES = INFO_SIN_CAMPO_CATEGORIES.flatMap(group => group.rules.map(rule => Object.assign({category:group.category,hints:group.hints}, rule)));
+
+// === Cuidados de Uso ===
+// Se detectan solo en Vestuario, Textil Hogar y productos textiles relacionados.
+const CARE_CATEGORY_HINTS=['vestuario','ropa','polera','camisa','blusa','pantalón','pantalon','jeans','chaqueta','parka','polerón','poleron','vestido','falda','short','calza','sweater','chaleco','pijama','textil hogar','dormitorio','ropa de cama','sábana','sabana','frazada','plumón','plumon','cubrecama','almohada','toalla','cortina','protector colchón','protector colchon','calzado','zapatilla','zapato','bototo','bota','sandalia'];
+const CARE_RULES=[
+  {label:'No planchar',patterns:[/\bno\s+planchar\b/i,/\bno\s+usar\s+plancha\b/i]},
+  {label:'Planchar a baja temperatura',patterns:[/\bplanchar\s+a\s+baja\s+temperatura\b/i,/\bplancha\s+baja\b/i]},
+  {label:'Planchar a temperatura media',patterns:[/\bplanchar\s+a\s+temperatura\s+media\b/i]},
+  {label:'Apto para secadora',patterns:[/\bapto\s+para\s+(?:la\s+)?secadora\b/i,/\bpuede\s+secarse\s+en\s+(?:la\s+)?secadora\b/i]},
+  {label:'No usar secadora',patterns:[/\bno\s+usar\s+secadora\b/i,/\bno\s+secar\s+en\s+(?:la\s+)?secadora\b/i]},
+  {label:'Secadora a baja temperatura',patterns:[/\bsec(?:ar|adora)\s+a\s+baja\s+temperatura\b/i]},
+  {label:'Secar a la sombra',patterns:[/\bsecar\s+a\s+la\s+sombra\b/i]},
+  {label:'Secar en plano',patterns:[/\bsecar\s+(?:extendido|en\s+plano)\b/i]},
+  {label:'Secar colgado',patterns:[/\bcolgar\s+para\s+secar\b/i,/\bsecar\s+colgado\b/i]},
+  {label:'Lavar a máquina',patterns:[/\blavar\s+a\s+m[aá]quina\b/i,/\blavado\s+a\s+m[aá]quina\b/i]},
+  {label:'Lavado delicado',patterns:[/\blavado\s+delicado\b/i,/\bciclo\s+delicado\b/i]},
+  {label:'Lavar a mano',patterns:[/\blavar\s+a\s+mano\b/i,/\blavado\s+a\s+mano\b/i]},
+  {label:'No lavar con agua',patterns:[/\bno\s+lavar(?:\s+con\s+agua)?\b/i]},
+  {label:'Lavar con agua fría',patterns:[/\blavar\s+(?:con|en)\s+agua\s+fr[ií]a\b/i]},
+  {label:'Lavar máx. 30 °C',patterns:[/\blav(?:ar|ado)[^\n.]{0,25}(?:m[aá]x(?:imo)?\.?\s*)?30\s*°?\s*c\b/i]},
+  {label:'Lavar máx. 40 °C',patterns:[/\blav(?:ar|ado)[^\n.]{0,25}(?:m[aá]x(?:imo)?\.?\s*)?40\s*°?\s*c\b/i]},
+  {label:'No usar blanqueador',patterns:[/\bno\s+usar\s+(?:cloro|lej[ií]a|blanqueador)\b/i,/\bno\s+blanquear\b/i]},
+  {label:'Blanqueador sin cloro',patterns:[/\bblanqueador\s+sin\s+cloro\b/i]},
+  {label:'Limpieza en seco',patterns:[/\blimpieza\s+en\s+seco\b/i,/\bdry\s+clean\b/i]},
+  {label:'No limpiar en seco',patterns:[/\bno\s+limpiar\s+en\s+seco\b/i]},
+  {label:'Lavar por separado',patterns:[/\blavar\s+por\s+separado\b/i]},
+  {label:'Lavar con colores similares',patterns:[/\blavar\s+con\s+colores\s+similares\b/i]},
+  {label:'Lavar del revés',patterns:[/\blavar\s+(?:del|al)\s+rev[eé]s\b/i]},
+  {label:'Cerrar cierres antes de lavar',patterns:[/\bcerrar\s+(?:los\s+)?cierres?\s+antes\s+de\s+lavar\b/i]},
+  {label:'Retirar accesorios antes de lavar',patterns:[/\bretirar\s+(?:los\s+)?accesorios?\s+antes\s+de\s+lavar\b/i]}
+];
+
+function infoCategoryText(row){
+  const preferred=['Categoría','Categoria','category','Category','Ruta Path','Path','Departamento','Subcategoría','Subcategoria','Tipo de Producto','Tipo Producto','Nombre del Producto','Nombre Producto','Producto'];
+  const vals=[];
+  preferred.forEach(k=>{ if(row && row[k]) vals.push(String(row[k])); });
+  return normalizaTextoTecnologia(vals.join(' '));
+}
+function infoRuleAppliesToRow(rule,row){
+  if(!rule || rule.category==='General' || !rule.hints || !rule.hints.length) return true;
+  const haystack=infoCategoryText(row);
+  return rule.hints.some(h=>haystack.includes(normalizaTextoTecnologia(h)));
+}
+
+function isInfoMatchInsideList(text, matched){
+  const raw=String(text||'');
+  const needle=String(matched||'').trim();
+  if(!needle) return false;
+  // Lista en texto plano: - valor / • valor / – valor / — valor
+  const lines=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  if(lines.some(line => /^\s*[-•–—]\s+/.test(line) && line.toLowerCase().includes(needle.toLowerCase()))) return true;
+  // Lista HTML ya existente.
+  const escaped=needle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  try { return new RegExp('<li\\b[^>]*>[\\s\\S]*?'+escaped+'[\\s\\S]*?<\\/li>','i').test(raw); } catch(e) { return false; }
+}
+
+function sourceFieldKey(row, sourceName){
+  const maps={
+    'Nombre del Producto':['Nombre del Producto','Nombre Producto','Producto'],
+    'Descripción corta':['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'],
+    'Descripción larga':['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']
+  };
+  const keys=maps[sourceName]||[sourceName];
+  return keys.find(k => Object.prototype.hasOwnProperty.call(row,k)) || '';
+}
+
+function removeInfoListItemFromSource(row, suggestion){
+  if(!suggestion || !suggestion.inList) return false;
+  const key=sourceFieldKey(row,suggestion.source);
+  if(!key) return false;
+  let text=String(row[key]||'');
+  if(!text) return false;
+  const rule=INFO_SIN_CAMPO_RULES.find(r=>r.label===suggestion.normalized);
+  if(!rule) return false;
+  let changed=false;
+
+  // 1) Texto plano: elimina solamente la línea de lista donde aparece el atributo.
+  const eol=text.includes('\r\n')?'\r\n':'\n';
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  const kept=[];
+  for(const line of lines){
+    const isList=/^\s*[-•–—]\s+/.test(line);
+    const hit=isList && rule.patterns.some(rx => { const r=new RegExp(rx.source,rx.flags.replace('g','')); return r.test(line); });
+    if(hit){ changed=true; continue; }
+    kept.push(line);
+  }
+  if(changed){
+    text=kept.join(eol).replace(/(?:\r?\n){3,}/g,eol+eol).trim();
+  }
+
+  // 2) HTML: elimina <li> completo si contiene el atributo detectado.
+  for(const rx of rule.patterns){
+    const flags=(rx.flags||'').replace('g','');
+    const liRe=/<li\b[^>]*>[\s\S]*?<\/li>/gi;
+    text=text.replace(liRe, li => {
+      const plain=li.replace(/<[^>]+>/g,' ');
+      const r=new RegExp(rx.source,flags);
+      if(r.test(plain)){ changed=true; return ''; }
+      return li;
+    });
+  }
+  if(changed) row[key]=text;
+  return changed;
+}
+
+function detectInfoWithoutField(row,rowIndex,sku){
+  const emitted=new Set();
+  for(const f of allTextFields(row)){
+    const text=String(f.value||'');
+    for(const rule of INFO_SIN_CAMPO_RULES){
+      if(!infoRuleAppliesToRow(rule,row)) continue;
+      for(const re of rule.patterns){
+        const m=text.match(re);
+        if(!m) continue;
+        const key=rule.label.toLowerCase();
+        if(emitted.has(key)) break;
+        emitted.add(key);
+        const inList=isInfoMatchInsideList(text,m[0]);
+        smartSuggestions.push({type:'unmapped',icon:'💡',rowIndex,sku,title:'Agregar Información Adicional',value:m[0],normalized:rule.label,source:f.name,category:rule.category,excerpt:excerptAround(text,m[0]),inList,status:'Sugerencia'});
+        break;
+      }
+    }
+  }
+}
+
+
+function careAppliesToRow(row){
+  const haystack=infoCategoryText(row);
+  return CARE_CATEGORY_HINTS.some(h=>haystack.includes(normalizaTextoTecnologia(h)));
+}
+// Cuidados incompatibles: nunca deben terminar simultáneamente como chips.
+const CARE_CONFLICTS={
+  'No lavar con agua':['Lavar con agua fría','Lavar máx. 30 °C','Lavar máx. 40 °C','Lavar a máquina','Lavado delicado','Lavar a mano'],
+  'Apto para secadora':['No usar secadora'],
+  'No usar secadora':['Apto para secadora','Secadora a baja temperatura'],
+  'No planchar':['Planchar a baja temperatura','Planchar a temperatura media'],
+  'Limpieza en seco':['No limpiar en seco'],
+  'No limpiar en seco':['Limpieza en seco']
+};
+function careLabelsConflict(a,b){
+  return (CARE_CONFLICTS[a]||[]).includes(b) || (CARE_CONFLICTS[b]||[]).includes(a);
+}
+function careSpecificity(label){
+  // Una instrucción positiva y específica de lavado tiene prioridad sobre el genérico "No lavar con agua".
+  if(['Lavar con agua fría','Lavar máx. 30 °C','Lavar máx. 40 °C','Lavar a máquina','Lavado delicado','Lavar a mano'].includes(label)) return 3;
+  if(label==='No lavar con agua') return 1;
+  return 2;
+}
+function detectCareInstructions(row,rowIndex,sku){
+  if(!careAppliesToRow(row)) return;
+  const candidates=[];
+  const emitted=new Set();
+  for(const f of allTextFields(row)){
+    const text=String(f.value||'');
+    for(const rule of CARE_RULES){
+      for(const re of rule.patterns){
+        const m=text.match(re); if(!m) continue;
+        if(emitted.has(rule.label.toLowerCase())) break;
+        emitted.add(rule.label.toLowerCase());
+        candidates.push({type:'care',icon:'🧺',rowIndex,sku,title:'Agregar Cuidados de Uso',value:m[0],normalized:rule.label,source:f.name,excerpt:excerptAround(text,m[0]),inList:isInfoMatchInsideList(text,m[0]),status:'Sugerencia'});
+        break;
+      }
+    }
+  }
+  // Resuelve contradicciones antes de mostrarlas. Si una regla es más específica, prevalece.
+  // Si ambas tienen igual prioridad, ninguna se propone automáticamente: se genera una alerta de revisión.
+  const rejected=new Set(), conflicts=[];
+  for(let i=0;i<candidates.length;i++) for(let j=i+1;j<candidates.length;j++){
+    const a=candidates[i], b=candidates[j];
+    if(!careLabelsConflict(a.normalized,b.normalized)) continue;
+    const pa=careSpecificity(a.normalized), pb=careSpecificity(b.normalized);
+    if(pa>pb) rejected.add(j);
+    else if(pb>pa) rejected.add(i);
+    else { rejected.add(i); rejected.add(j); conflicts.push([a.normalized,b.normalized]); }
+  }
+  candidates.forEach((c,i)=>{ if(!rejected.has(i)) smartSuggestions.push(c); });
+  conflicts.forEach(pair=>smartSuggestions.push({type:'care_conflict',icon:'⚠️',rowIndex,sku,title:'Revisar Cuidados de Uso',value:pair.join(' / '),normalized:pair.join(' / '),source:'Descripción',excerpt:'Se detectaron instrucciones incompatibles. Validar el contenido antes de generar chips.',status:'Revisar'}));
+}
+function removeCareListItemFromSource(row,suggestion){
+  if(!suggestion || !suggestion.inList) return false;
+  const key=sourceFieldKey(row,suggestion.source); if(!key) return false;
+  let text=String(row[key]||''); if(!text) return false;
+  const rule=CARE_RULES.find(r=>r.label===suggestion.normalized); if(!rule) return false;
+  let changed=false; const eol=text.includes('\r\n')?'\r\n':'\n';
+  const kept=[];
+  for(const line of text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n')){
+    const hit=/^\s*[-•–—]\s+/.test(line) && rule.patterns.some(rx=>new RegExp(rx.source,(rx.flags||'').replace('g','')).test(line));
+    if(hit){changed=true;continue;} kept.push(line);
+  }
+  if(changed) text=kept.join(eol).replace(/(?:\r?\n){3,}/g,eol+eol).trim();
+  const liRe=/<li\b[^>]*>[\s\S]*?<\/li>/gi;
+  text=text.replace(liRe,li=>{const plain=li.replace(/<[^>]+>/g,' ');const hit=rule.patterns.some(rx=>new RegExp(rx.source,(rx.flags||'').replace('g','')).test(plain));if(hit){changed=true;return '';}return li;});
+  if(changed) row[key]=text; return changed;
+}
+
 function detectBadUrls(row,rowIndex,sku){
   const urlish=/((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
   const knownBad='https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/Dif_358484999_3.webp';
@@ -1049,8 +1421,6 @@ function detectSmartSuggestions(){
   smartSuggestions=[];
   excelRows.forEach((row,rowIndex)=>{
     const sku=get(row,['SKU']);
-    detectMaterial(row,rowIndex,sku);
-    detectDimensions(row,rowIndex,sku);
     detectarTecnologias(row).forEach(t=>{
       smartSuggestions.push({
         type:'technology', icon:'⚡', rowIndex, sku,
@@ -1058,6 +1428,8 @@ function detectSmartSuggestions(){
         source:t.campo, brand:t.marca, status:'Sugerencia'
       });
     });
+    detectInfoWithoutField(row,rowIndex,sku);
+    detectCareInstructions(row,rowIndex,sku);
     detectBadUrls(row,rowIndex,sku);
   });
   renderSmartSuggestions();
@@ -1075,6 +1447,24 @@ function applySmartSuggestion(i,silent=false){
     const techs=getTecnologiasAplicadas(row);
     if(!techs.includes(s.normalized)) techs.push(s.normalized);
     setTecnologiasAplicadas(row,techs);
+  }
+  else if(s.type==='unmapped'){
+    const notas=getNotasProducto(row);
+    const valor=String(s.normalized||s.value||'').trim();
+    if(valor && !notas.includes(valor)) notas.push(valor);
+    setNotasProducto(row,notas);
+    // Si el dato provenía de una línea de lista, se elimina esa línea para evitar redundancia.
+    // Si estaba dentro de un párrafo/contexto, el texto original se conserva.
+    removeInfoListItemFromSource(row,s);
+  }
+  else if(s.type==='care'){
+    let cuidados=getCuidadosUso(row);
+    const valor=String(s.normalized||s.value||'').trim();
+    // Seguridad adicional: al aprobar un cuidado se retira cualquier chip incompatible ya existente.
+    cuidados=cuidados.filter(x=>!careLabelsConflict(valor,x));
+    if(valor && !cuidados.includes(valor)) cuidados.push(valor);
+    setCuidadosUso(row,cuidados);
+    removeCareListItemFromSource(row,s);
   }
   else return false;
   s.status='Aplicado';
@@ -1135,8 +1525,9 @@ function fallbackCopySku(value,done){
 function getSectionItems(sectionKey){
   if(sectionKey==='claims') return claimSuggestions.map((s,i)=>({kind:'claim',s,i}));
   if(sectionKey==='tech') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology');
-  if(sectionKey==='content') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material'||x.s.type==='dimensions');
   if(sectionKey==='url') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='url');
+  if(sectionKey==='unmapped') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='unmapped');
+  if(sectionKey==='care') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='care'||x.s.type==='care_conflict');
   return [];
 }
 
@@ -1178,6 +1569,8 @@ function getSuggestionGroupKey(x){
   if(s.type==='material') return 'material::'+String(s.normalized||s.value||'Material');
   if(s.type==='dimensions') return 'dimensions::'+String(s.title||'Dimensiones detectadas');
   if(s.type==='url') return 'url::URL posiblemente problemática';
+  if(s.type==='unmapped') return 'unmapped::'+String(s.normalized||s.value||'Información detectada');
+  if(s.type==='care') return 'care::'+String(s.normalized||s.value||'Cuidado detectado');
   return 'other::'+String(s.title||s.type||'Sugerencia');
 }
 
@@ -1188,6 +1581,8 @@ function getSuggestionGroupTitle(x){
   if(s.type==='material') return '🧵 Material · '+String(s.normalized||s.value||'Detectado');
   if(s.type==='dimensions') return '📐 '+String(s.title||'Dimensiones detectadas');
   if(s.type==='url') return '🔗 URL posiblemente problemática';
+  if(s.type==='unmapped') return '💡 '+String(s.normalized||s.value||'Información detectada');
+  if(s.type==='care') return '🧺 '+String(s.normalized||s.value||'Cuidado detectado');
   return String(s.title||s.type||'Sugerencia');
 }
 
@@ -1210,6 +1605,26 @@ function approveAllTechnologiesForSku(rowIndex){
   renderGroupedSuggestions();
   updateTables();
   alert('✅ Tecnologías aprobadas para el SKU: '+n+'.');
+}
+
+function approveAllInfoForSku(rowIndex){
+  const items=smartSuggestions.map((s,i)=>({s,i})).filter(x=>x.s.type==='unmapped' && x.s.rowIndex===rowIndex && x.s.status==='Sugerencia');
+  if(!items.length){ alert('No hay información adicional pendiente para aprobar en este SKU.'); return; }
+  let n=0;
+  items.forEach(x=>{ if(applySmartSuggestion(x.i,true)) n++; });
+  renderGroupedSuggestions();
+  updateTables();
+  alert('✅ Información adicional aprobada para el SKU: '+n+'.');
+}
+
+function approveAllCareForSku(rowIndex){
+  const items=smartSuggestions.map((s,i)=>({s,i})).filter(x=>x.s.type==='care' && x.s.rowIndex===rowIndex && x.s.status==='Sugerencia');
+  if(!items.length){ alert('No hay cuidados de uso pendientes para aprobar en este SKU.'); return; }
+  let n=0;
+  items.forEach(x=>{ if(applySmartSuggestion(x.i,true)) n++; });
+  renderGroupedSuggestions();
+  updateTables();
+  alert('✅ Cuidados de uso aprobados para el SKU: '+n+'.');
 }
 
 function renderSmartSuggestions(){ renderGroupedSuggestions(); }
@@ -1236,7 +1651,8 @@ function renderGroupedSuggestions(){
   const sections=[
     {key:'claims',title:'🏷️ Claims / Logos',items:claimSuggestions.map((s,i)=>({kind:'claim',s,i}))},
     {key:'tech',title:'⚡ Tecnologías',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology')},
-    {key:'content',title:'🧵 Material y 📐 Dimensiones',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material'||x.s.type==='dimensions')},
+    {key:'unmapped',title:'💡 Agregar Información Adicional',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='unmapped')},
+    {key:'care',title:'🧺 Agregar Cuidados de Uso',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='care'||x.s.type==='care_conflict')},
     {key:'url',title:'🔗 URLs para revisar',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='url')}
   ].filter(sec=>sec.items.length);
 
@@ -1266,6 +1682,17 @@ function renderGroupedSuggestions(){
     }else if(s.type==='url'){
       body=`<div class="ai-status">URL posiblemente problemática</div><div class="suggestion-detail">${escClaim(s.excerpt||s.value||'')}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
       actions='<span class="review-only">Solo alerta · requiere revisión</span>';
+    }else if(s.type==='unmapped'){
+      const canApply=s.status==='Sugerencia';
+      body=`<div class="ai-status">Información adicional sugerida</div><span class="info-unmapped-tag">${escClaim(s.normalized||s.value)}</span><div class="suggestion-detail"><strong>Encontrado en:</strong> ${escClaim(s.source||'Texto')}${s.category&&s.category!=='General'?' · <strong>Categoría:</strong> '+escClaim(s.category):''}${s.inList?' · Se quitará de la lista al aprobar para evitar duplicidad':''}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
+      actions=canApply?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Agregar información</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
+    }else if(s.type==='care_conflict'){
+      detail=`<div class="suggestion-title">⚠️ ${s.title}</div><div class="suggestion-detail"><strong>${s.value}</strong><br><span>${s.excerpt||''}</span></div>`;
+      action=`<span class="suggestion-status">Revisión manual</span>`;
+    }else if(s.type==='care'){
+      const canApply=s.status==='Sugerencia';
+      body=`<div class="ai-status">Cuidado de uso sugerido</div><span class="info-unmapped-tag">${escClaim(s.normalized||s.value)}</span><div class="suggestion-detail"><strong>Encontrado en:</strong> ${escClaim(s.source||'Texto')}${s.inList?' · Se quitará de la lista al aprobar para evitar duplicidad':''}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
+      actions=canApply?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Agregar cuidado</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
     }
     const selectable=(s.status==='Sugerencia' && !(x.kind==='smart' && s.type==='url'));
     const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="${x.kind}" data-index="${x.i}" aria-label="Seleccionar sugerencia SKU ${sku}">`:'';
@@ -1290,7 +1717,7 @@ function renderGroupedSuggestions(){
       </div>
       <div id="${secId}" class="suggestion-section-body" style="display:block;">
         ${(()=>{
-          if(sec.key==='tech'){
+          if(sec.key==='tech' || sec.key==='unmapped' || sec.key==='care'){
             const skuGroups=new Map();
             sec.items.forEach(x=>{
               const key=String(x.s.rowIndex);
@@ -1302,16 +1729,44 @@ function renderGroupedSuggestions(){
               const appliedSku=g.items.filter(x=>x.s.status==='Aplicado').length;
               const skuEsc=escClaim(g.sku);
               const copy=`<button class="suggestion-mini-copy" onclick="copySkuToClipboard('${escClaim(String(g.sku).replace(/'/g,"\\'"))}',this)">Copiar SKU</button>`;
-              const approveSku=pendingSku?`<button type="button" class="tech-sku-approve" onclick="approveAllTechnologiesForSku(${g.rowIndex})">✓ Aprobar tecnologías SKU</button>`:'';
-              const techItems=g.items.map(x=>{
+              if(sec.key==='tech'){
+                const approveSku=pendingSku?`<button type="button" class="tech-sku-approve" onclick="approveAllTechnologiesForSku(${g.rowIndex})">✓ Aprobar tecnologías SKU</button>`:'';
+                const techItems=g.items.map(x=>{
+                  const s=x.s;
+                  const selectable=s.status==='Sugerencia';
+                  const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="smart" data-index="${x.i}" aria-label="Seleccionar ${escClaim(s.normalized)} SKU ${skuEsc}">`:'';
+                  const desc=TECNOLOGIA_INFO[s.normalized]||'Tecnología aplicada al producto.';
+                  const actions=selectable?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Agregar tecnología</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
+                  return `<div class="tech-item"><div class="suggestion-mini-select">${checkbox}<span class="tech-chip-preview">⚡ ${escClaim(s.normalized)}</span></div><div class="tech-desc-preview">${escClaim(desc)}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>${actions}</div>`;
+                }).join('');
+                return `<div class="tech-sku-group"><div class="tech-sku-head"><div><div class="tech-sku-title">SKU ${skuEsc}</div><div class="suggestion-subgroup-meta">${g.items.length} tecnología${g.items.length===1?'':'s'}${pendingSku?' · '+pendingSku+' pendiente'+(pendingSku===1?'':'s'):''}${appliedSku?' · '+appliedSku+' aplicada'+(appliedSku===1?'':'s'):''}</div></div><div class="tech-sku-actions">${copy}${approveSku}</div></div><div class="tech-sku-body"><div class="tech-list">${techItems}</div></div></div>`;
+              }
+              if(sec.key==='care'){
+                const carePending=g.items.filter(x=>x.s.type==='care' && x.s.status==='Sugerencia').length;
+                const careApplied=g.items.filter(x=>x.s.type==='care' && x.s.status==='Aplicado').length;
+                const careReview=g.items.filter(x=>x.s.type==='care_conflict' || x.s.status==='Revisar').length;
+                const approveSku=carePending?`<button type="button" class="tech-sku-approve" onclick="approveAllCareForSku(${g.rowIndex})">✓ Aprobar cuidados SKU</button>`:'';
+                const careItems=g.items.map(x=>{
+                  const s=x.s;
+                  if(s.type==='care_conflict'){
+                    return `<div class="tech-item"><div class="suggestion-mini-select"><span class="info-unmapped-tag" style="border-color:#fecdca;background:#fef3f2;color:#b42318;">⚠ ${escClaim(s.value||'Conflicto')}</span></div><div class="suggestion-status"><strong>Estado:</strong> Revisión manual</div><div class="suggestion-detail">${escClaim(s.excerpt||'Se detectaron instrucciones incompatibles.')}</div></div>`;
+                  }
+                  const selectable=s.status==='Sugerencia';
+                  const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="smart" data-index="${x.i}" aria-label="Seleccionar ${escClaim(s.normalized||s.value)} SKU ${skuEsc}">`:'';
+                  const actions=selectable?`<div class="ai-actions info-icon-actions"><button type="button" class="info-action-btn info-approve-btn" title="Aprobar" aria-label="Aprobar ${escClaim(s.normalized||s.value)}" onclick="applySmartSuggestion(${x.i})">✓</button><button type="button" class="info-action-btn info-reject-btn" title="Rechazar" aria-label="Rechazar ${escClaim(s.normalized||s.value)}" onclick="ignoreSmartSuggestion(${x.i})">✕</button></div>`:'';
+                  return `<div class="tech-item"><div class="suggestion-mini-select">${checkbox}<span class="info-unmapped-tag">${escClaim(s.normalized||s.value)}</span></div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}${s.inList?' · Se retirará de la lista al aprobar':''}</div>${actions}</div>`;
+                }).join('');
+                return `<div class="tech-sku-group"><div class="tech-sku-head"><div><div class="tech-sku-title">SKU ${skuEsc}</div><div class="suggestion-subgroup-meta">${g.items.length} hallazgo${g.items.length===1?'':'s'}${carePending?' · '+carePending+' pendiente'+(carePending===1?'':'s'):''}${careApplied?' · '+careApplied+' aplicado'+(careApplied===1?'':'s'):''}${careReview?' · '+careReview+' revisión'+(careReview===1?'':'es'):''}</div></div><div class="tech-sku-actions">${copy}${approveSku}</div></div><div class="tech-sku-body"><div class="tech-list info-list">${careItems}</div></div></div>`;
+              }
+              const approveSku=pendingSku?`<button type="button" class="tech-sku-approve" onclick="approveAllInfoForSku(${g.rowIndex})">✓ Aprobar información SKU</button>`:'';
+              const infoItems=g.items.map(x=>{
                 const s=x.s;
                 const selectable=s.status==='Sugerencia';
-                const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="smart" data-index="${x.i}" aria-label="Seleccionar ${escClaim(s.normalized)} SKU ${skuEsc}">`:'';
-                const desc=TECNOLOGIA_INFO[s.normalized]||'Tecnología aplicada al producto.';
-                const actions=selectable?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Agregar tecnología</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
-                return `<div class="tech-item"><div class="suggestion-mini-select">${checkbox}<span class="tech-chip-preview">⚡ ${escClaim(s.normalized)}</span></div><div class="tech-desc-preview">${escClaim(desc)}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>${actions}</div>`;
+                const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="smart" data-index="${x.i}" aria-label="Seleccionar ${escClaim(s.normalized||s.value)} SKU ${skuEsc}">`:'';
+                const actions=selectable?`<div class="ai-actions info-icon-actions"><button type="button" class="info-action-btn info-approve-btn" title="Aprobar" aria-label="Aprobar ${escClaim(s.normalized||s.value)}" onclick="applySmartSuggestion(${x.i})">✓</button><button type="button" class="info-action-btn info-reject-btn" title="Rechazar" aria-label="Rechazar ${escClaim(s.normalized||s.value)}" onclick="ignoreSmartSuggestion(${x.i})">✕</button></div>`:'';
+                return `<div class="tech-item"><div class="suggestion-mini-select">${checkbox}<span class="info-unmapped-tag">${escClaim(s.normalized||s.value)}</span></div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}${s.inList?' · Se retirará de la lista al aprobar':''}</div>${actions}</div>`;
               }).join('');
-              return `<div class="tech-sku-group"><div class="tech-sku-head"><div><div class="tech-sku-title">SKU ${skuEsc}</div><div class="suggestion-subgroup-meta">${g.items.length} tecnología${g.items.length===1?'':'s'}${pendingSku?' · '+pendingSku+' pendiente'+(pendingSku===1?'':'s'):''}${appliedSku?' · '+appliedSku+' aplicada'+(appliedSku===1?'':'s'):''}</div></div><div class="tech-sku-actions">${copy}${approveSku}</div></div><div class="tech-sku-body"><div class="tech-list">${techItems}</div></div></div>`;
+              return `<div class="tech-sku-group"><div class="tech-sku-head"><div><div class="tech-sku-title">SKU ${skuEsc}</div><div class="suggestion-subgroup-meta">${g.items.length} sugerencia${g.items.length===1?'':'s'}${pendingSku?' · '+pendingSku+' pendiente'+(pendingSku===1?'':'s'):''}${appliedSku?' · '+appliedSku+' aplicada'+(appliedSku===1?'':'s'):''}</div></div><div class="tech-sku-actions">${copy}${approveSku}</div></div><div class="tech-sku-body"><div class="tech-list info-list">${infoItems}</div></div></div>`;
             }).join('');
           }
           const groups=new Map();
@@ -1343,6 +1798,7 @@ function renderGroupedSuggestions(){
       </div>
     </div>`;
   }).join('');
+  renderQualityPanel();
 }
 
 function getClaimSearchFields(row){
@@ -1466,6 +1922,56 @@ function escClaim(v){
 
 function renderClaimSuggestions(){ renderGroupedSuggestions(); }
 
+
+function setPreviewMode(mode){
+  const viewport=document.getElementById('previewViewport');
+  const desktop=document.getElementById('previewDesktopBtn');
+  const mobile=document.getElementById('previewMobileBtn');
+  if(!viewport) return;
+  const isMobile=mode==='mobile';
+  viewport.classList.toggle('preview-mobile',isMobile);
+  viewport.classList.toggle('preview-desktop',!isMobile);
+  if(desktop) desktop.classList.toggle('active',!isMobile);
+  if(mobile) mobile.classList.toggle('active',isMobile);
+}
+
+function evaluateSkuQuality(row,rowIndex){
+  const reasons=[];
+  let level='green';
+  const name=String(get(row,['Nombre del Producto','Nombre Producto','Producto'])||'').trim();
+  const short=String(get(row,['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'])||'').trim();
+  const long=String(get(row,['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción'])||'').trim();
+  const urlIssues=smartSuggestions.filter(s=>s.rowIndex===rowIndex && s.type==='url').length;
+  const pendingUseful=claimSuggestions.filter(s=>s.rowIndex===rowIndex && s.status==='Sugerencia').length + smartSuggestions.filter(s=>s.rowIndex===rowIndex && ['technology','material','dimensions','unmapped','care'].includes(s.type) && s.status==='Sugerencia').length;
+  const red=(msg)=>{level='red'; reasons.push('🔴 '+msg);};
+  const yellow=(msg)=>{if(level!=='red') level='yellow'; reasons.push('🟡 '+msg);};
+  if(!name) red('Falta nombre del producto');
+  if(!long) red('Falta descripción larga');
+  if(urlIssues) red(urlIssues+' URL'+(urlIssues===1?'':'s')+' requiere'+(urlIssues===1?'':'n')+' revisión');
+  if(!short) yellow('Falta descripción corta');
+  else if(short.length>160) yellow('Descripción corta supera 160 caracteres ('+short.length+')');
+  if(long && normalizeSentence(long).length<120) yellow('Descripción larga con poco contenido');
+  if(pendingUseful) yellow(pendingUseful+' sugerencia'+(pendingUseful===1?'':'s')+' útil'+(pendingUseful===1?'':'es')+' pendiente'+(pendingUseful===1?'':'s'));
+  if(!reasons.length) reasons.push('🟢 Sin alertas objetivas detectadas');
+  return {level,reasons};
+}
+
+function renderQualityPanel(){
+  const panel=document.getElementById('qualityPanel');
+  if(!panel) return;
+  if(!excelRows.length){ panel.style.display='none'; panel.innerHTML=''; return; }
+  const rows=excelRows.map((row,i)=>({row,i,sku:get(row,['SKU']),q:evaluateSkuQuality(row,i)}));
+  const counts={green:0,yellow:0,red:0}; rows.forEach(x=>counts[x.q.level]++);
+  const overall=counts.red?'red':(counts.yellow?'yellow':'green');
+  const label={green:'Listo para publicar',yellow:'Requiere revisión',red:'Requiere corrección'}[overall];
+  const dot={green:'quality-green',yellow:'quality-yellow',red:'quality-red'}[overall];
+  const statusLabel={green:'Listo',yellow:'Revisar',red:'Corregir'};
+  panel.style.display='block';
+  panel.innerHTML=`<div class="quality-head"><h2>🚦 Semáforo de calidad</h2><div class="quality-overall"><span class="quality-dot ${dot}"></span>${label}</div></div>
+    <div class="quality-summary"><span class="quality-pill"><span class="quality-dot quality-green"></span>${counts.green} OK</span><span class="quality-pill"><span class="quality-dot quality-yellow"></span>${counts.yellow} por revisar</span><span class="quality-pill"><span class="quality-dot quality-red"></span>${counts.red} con corrección</span></div>
+    <details class="quality-details"><summary>Ver detalle por SKU</summary><div class="quality-grid">${rows.map(x=>`<div class="quality-sku"><div class="quality-sku-top"><strong>SKU ${escClaim(x.sku||'—')}</strong><span class="quality-status"><span class="quality-dot ${x.q.level==='green'?'quality-green':x.q.level==='yellow'?'quality-yellow':'quality-red'}"></span> ${statusLabel[x.q.level]}</span></div><div class="quality-reasons">${x.q.reasons.map(r=>`<div>${escClaim(r)}</div>`).join('')}</div></div>`).join('')}</div></details>`;
+}
+
 function updateTables() {
   const container = document.getElementById('tablesContainer');
   if (!excelRows.length) {
@@ -1535,6 +2041,8 @@ ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${ma
 ${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
+${renderNotasProductoChips(row)}
+${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
 ${difBlock1}
 ${difBlock23}
@@ -1557,6 +2065,7 @@ ${!hayImagenDiferenciadora ? botonHTML : ''}`;
 });
   html += '</div>';
   container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
+  renderQualityPanel();
 }
 function exportHtmlToExcel() {
   if (!excelRows.length) return alert('❌ No hay datos cargados para exportar.');
@@ -1616,6 +2125,8 @@ ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${ma
 ${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
+${renderNotasProductoChips(row)}
+${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
 ${difBlock1}
 ${difBlock23}
@@ -1645,6 +2156,8 @@ function limpiarTodo() {
   excelRows = [];
   claimSuggestions = [];
   const cp=document.getElementById('claimsPanel'); if(cp) cp.style.display='none';
+  const qp=document.getElementById('qualityPanel'); if(qp){qp.style.display='none';qp.innerHTML='';}
+  setPreviewMode('desktop');
   const cr=document.getElementById('claimsResults'); if(cr) cr.innerHTML='';
   const cs=document.getElementById('claimsSummary'); if(cs) cs.textContent='';
   alert('🧹 Se limpiaron los datos y las tablas correctamente.');
