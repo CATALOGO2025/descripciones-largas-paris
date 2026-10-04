@@ -1288,14 +1288,20 @@ const INFO_SIN_CAMPO_CATEGORIES = [
 const INFO_SIN_CAMPO_RULES = INFO_SIN_CAMPO_CATEGORIES.flatMap(group => group.rules.map(rule => Object.assign({category:group.category,hints:group.hints}, rule)));
 
 // === Cuidados de Uso ===
-// Se detectan solo en Vestuario, Textil Hogar y productos textiles relacionados.
-const CARE_CATEGORY_HINTS=['vestuario','ropa','polera','camisa','blusa','pantalón','pantalon','jeans','chaqueta','parka','polerón','poleron','vestido','falda','short','calza','sweater','chaleco','pijama','textil hogar','dormitorio','ropa de cama','sábana','sabana','frazada','plumón','plumon','cubrecama','almohada','toalla','cortina','protector colchón','protector colchon','calzado','zapatilla','zapato','bototo','bota','sandalia'];
+// Se priorizan instrucciones explícitas de cuidado. La detección no depende solo de la categoría:
+// si el texto contiene una instrucción válida, también se propone el chip para evitar falsos negativos.
+const CARE_CATEGORY_HINTS=['vestuario','ropa','polera','camisa','blusa','pantalón','pantalon','jeans','chaqueta','parka','polerón','poleron','vestido','falda','short','calza','sweater','chaleco','pijama','faja','ropa interior','lencería','lenceria','sostén','sosten','calzón','calzon','calcetín','calcetin','textil hogar','dormitorio','ropa de cama','sábana','sabana','frazada','plumón','plumon','cubrecama','almohada','toalla','cortina','protector colchón','protector colchon','calzado','zapatilla','zapato','bototo','bota','sandalia'];
 const CARE_RULES=[
-  {label:'No planchar',patterns:[/\bno\s+planchar\b/i,/\bno\s+usar\s+plancha\b/i]},
+  {label:'No lavar',patterns:[/\bno\s+lavar\b(?!\s+en\s+seco)/i,/\blavado\s*:\s*no\s+lavar\b/i]},
+  {label:'No limpiar en seco',patterns:[/\bno\s+limpiar\s+en\s+seco\b/i,/\blavado\s+en\s+seco\s*:\s*no\s+limpiar\s+en\s+seco\b/i]},
+  {label:'No usar cloro',patterns:[/\bno\s+usar\s+cloro\b/i,/\bno\s+usar\s+(?:lej[ií]a|blanqueador)\b/i,/\bno\s+blanquear\b/i,/\bblanqueador\s*:\s*no\s+usar\s+cloro\b/i]},
+  {label:'No usar secadora',patterns:[/\bno\s+usar\s+(?:la\s+)?secadora\b/i,/\bno\s+secar\s+en\s+(?:la\s+)?secadora\b/i,/\bsecado\s*:\s*no\s+secar\s+en\s+(?:la\s+)?secadora\b/i]},
+  {label:'No planchar',patterns:[/\bno\s+planchar\b/i,/\bno\s+usar\s+plancha\b/i,/\bplanchado\s*:\s*no\s+planchar\b/i]},
+  {label:'Limpiar con cepillo suave',patterns:[/\blimpiar\s+con\s+(?:un\s+)?cepillo\s+suave\b/i]},
+  {label:'Limpiar con agua tibia',patterns:[/\blimpiar\s+con\s+agua\s+tibia\b/i,/\blimpiar\b[^.\n;]{0,60}\b(?:con|y)\s+agua\s+tibia\b/i]},
   {label:'Planchar a baja temperatura',patterns:[/\bplanchar\s+a\s+baja\s+temperatura\b/i,/\bplancha\s+baja\b/i]},
   {label:'Planchar a temperatura media',patterns:[/\bplanchar\s+a\s+temperatura\s+media\b/i]},
   {label:'Apto para secadora',patterns:[/\bapto\s+para\s+(?:la\s+)?secadora\b/i,/\bpuede\s+secarse\s+en\s+(?:la\s+)?secadora\b/i]},
-  {label:'No usar secadora',patterns:[/\bno\s+usar\s+secadora\b/i,/\bno\s+secar\s+en\s+(?:la\s+)?secadora\b/i]},
   {label:'Secadora a baja temperatura',patterns:[/\bsec(?:ar|adora)\s+a\s+baja\s+temperatura\b/i]},
   {label:'Secar a la sombra',patterns:[/\bsecar\s+a\s+la\s+sombra\b/i]},
   {label:'Secar en plano',patterns:[/\bsecar\s+(?:extendido|en\s+plano)\b/i]},
@@ -1303,14 +1309,11 @@ const CARE_RULES=[
   {label:'Lavar a máquina',patterns:[/\blavar\s+a\s+m[aá]quina\b/i,/\blavado\s+a\s+m[aá]quina\b/i]},
   {label:'Lavado delicado',patterns:[/\blavado\s+delicado\b/i,/\bciclo\s+delicado\b/i]},
   {label:'Lavar a mano',patterns:[/\blavar\s+a\s+mano\b/i,/\blavado\s+a\s+mano\b/i]},
-  {label:'No lavar con agua',patterns:[/\bno\s+lavar(?:\s+con\s+agua)?\b/i]},
   {label:'Lavar con agua fría',patterns:[/\blavar\s+(?:con|en)\s+agua\s+fr[ií]a\b/i]},
   {label:'Lavar máx. 30 °C',patterns:[/\blav(?:ar|ado)[^\n.]{0,25}(?:m[aá]x(?:imo)?\.?\s*)?30\s*°?\s*c\b/i]},
   {label:'Lavar máx. 40 °C',patterns:[/\blav(?:ar|ado)[^\n.]{0,25}(?:m[aá]x(?:imo)?\.?\s*)?40\s*°?\s*c\b/i]},
-  {label:'No usar blanqueador',patterns:[/\bno\s+usar\s+(?:cloro|lej[ií]a|blanqueador)\b/i,/\bno\s+blanquear\b/i]},
   {label:'Blanqueador sin cloro',patterns:[/\bblanqueador\s+sin\s+cloro\b/i]},
   {label:'Limpieza en seco',patterns:[/\blimpieza\s+en\s+seco\b/i,/\bdry\s+clean\b/i]},
-  {label:'No limpiar en seco',patterns:[/\bno\s+limpiar\s+en\s+seco\b/i]},
   {label:'Lavar por separado',patterns:[/\blavar\s+por\s+separado\b/i]},
   {label:'Lavar con colores similares',patterns:[/\blavar\s+con\s+colores\s+similares\b/i]},
   {label:'Lavar del revés',patterns:[/\blavar\s+(?:del|al)\s+rev[eé]s\b/i]},
@@ -1418,11 +1421,14 @@ function detectInfoWithoutField(row,rowIndex,sku){
 
 function careAppliesToRow(row){
   const haystack=infoCategoryText(row);
-  return CARE_CATEGORY_HINTS.some(h=>haystack.includes(normalizaTextoTecnologia(h)));
+  if(CARE_CATEGORY_HINTS.some(h=>haystack.includes(normalizaTextoTecnologia(h)))) return true;
+  // Fallback por contenido: permite detectar cuidados explícitos aunque la categoría no esté mapeada.
+  const sourceText=allTextFields(row).map(f=>String(f.value||'')).join(' ');
+  return CARE_RULES.some(rule=>rule.patterns.some(rx=>new RegExp(rx.source,(rx.flags||'').replace('g','')).test(sourceText)));
 }
 // Cuidados incompatibles: nunca deben terminar simultáneamente como chips.
 const CARE_CONFLICTS={
-  'No lavar con agua':['Lavar con agua fría','Lavar máx. 30 °C','Lavar máx. 40 °C','Lavar a máquina','Lavado delicado','Lavar a mano'],
+  'No lavar':['Lavar con agua fría','Lavar máx. 30 °C','Lavar máx. 40 °C','Lavar a máquina','Lavado delicado','Lavar a mano'],
   'Apto para secadora':['No usar secadora'],
   'No usar secadora':['Apto para secadora','Secadora a baja temperatura'],
   'No planchar':['Planchar a baja temperatura','Planchar a temperatura media'],
@@ -1435,7 +1441,7 @@ function careLabelsConflict(a,b){
 function careSpecificity(label){
   // Una instrucción positiva y específica de lavado tiene prioridad sobre el genérico "No lavar con agua".
   if(['Lavar con agua fría','Lavar máx. 30 °C','Lavar máx. 40 °C','Lavar a máquina','Lavado delicado','Lavar a mano'].includes(label)) return 3;
-  if(label==='No lavar con agua') return 1;
+  if(label==='No lavar') return 1;
   return 2;
 }
 function detectCareInstructions(row,rowIndex,sku){
