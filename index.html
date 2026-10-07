@@ -316,8 +316,8 @@ function setNotasProducto(row, arr){
 function renderNotasProductoChips(row){
   const notas=getNotasProducto(row);
   if(!notas.length) return '';
-  const chips=notas.map(n=>`<span style='display:inline-flex;align-items:center;padding:6px 10px;margin:4px 6px 4px 0;border:1px solid #fdba74;border-radius:6px;background:#fff7ed;color:#c2410c;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;'>${n}</span>`).join('');
-  return `<div style='margin:10px 0 14px 0;'><div style='font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px;'>Características</div><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${chips}</div></div>`;
+  const chips=notas.map(n=>`<span style='display:inline-flex;align-items:center;padding:6px 10px;margin:4px 6px 4px 0;border:1px solid #1789c7;border-radius:6px;background:#eaf7ff;color:#126a9a;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;'>${n}</span>`).join('');
+  return `<div style='margin:10px 0 14px 0;'><div style='display:flex;flex-wrap:wrap;align-items:flex-start;'>${chips}</div></div>`;
 }
 
 
@@ -597,19 +597,42 @@ function formatMetaDescripcion(texto) {
 }
 function cleanYoutubeUrl(url) {
     if (!url) return '';
-    let cleanUrl = url.trim();
-    if (cleanUrl.includes('youtu.be/')) {
-        cleanUrl = cleanUrl.split('?')[0];
-        const videoId = cleanUrl.split('youtu.be/')[1];
-        return `https://www.youtube.com/embed/${videoId}`;
-    }
-    if (cleanUrl.includes('watch?v=')) {
-        cleanUrl = cleanUrl.replace('watch?v=', 'embed/').split('&')[0];
-        return cleanUrl.split('?')[0];
-    }
-    
+    const raw = String(url).trim();
+    if (!raw) return '';
 
-return cleanUrl.split('?')[0];
+    // También permite pegar directamente el ID de 11 caracteres.
+    if (/^[A-Za-z0-9_-]{11}$/.test(raw)) {
+        return `https://www.youtube.com/embed/${raw}?playsinline=1`;
+    }
+
+    let u;
+    try { u = new URL(raw); } catch (e) { return ''; }
+
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    let videoId = '';
+    if (host === 'youtu.be') {
+        videoId = u.pathname.split('/').filter(Boolean)[0] || '';
+    } else if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+        if (u.pathname === '/watch') {
+            videoId = u.searchParams.get('v') || '';
+        } else {
+            const parts = u.pathname.split('/').filter(Boolean);
+            const type = parts[0] || '';
+            if (['embed','shorts','live'].includes(type)) videoId = parts[1] || '';
+        }
+    }
+    videoId = String(videoId).trim().replace(/[^A-Za-z0-9_-]/g, '');
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return '';
+    return `https://www.youtube.com/embed/${videoId}?playsinline=1`;
+}
+
+function getFirstNonEmpty(row, keys) {
+    for (const k of keys) {
+        if (row && k in row && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+            return String(row[k]).trim();
+        }
+    }
+    return '';
 }
 
 // --- Helper: elimina la caja de ficha técnica si la tabla quedó vacía (sin filas) ---
@@ -816,6 +839,26 @@ img { max-width: 100%; height: auto; }
   .info-sku-items, .care-sku-items, .info-compact-grid, .care-compact-grid, .sku-suggestion-items {grid-template-columns:1fr !important;}
 }
 </style>
+
+<style>
+/* === Paris: franja tecnica + controles de edicion === */
+.paris-tech-strip{display:flex!important;flex-direction:row!important;align-items:stretch!important;width:100%!important;max-width:100%!important;margin:2px 0 14px!important;background:#fff!important;border:1px solid #eceff2!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important}
+.paris-tech-separator{display:block!important;width:1px!important;min-width:1px!important;height:auto!important;min-height:72px!important;align-self:stretch!important;background:#d9e1e8!important;flex:0 0 1px!important;margin:10px 0!important}
+.paris-tech-item{display:flex!important;flex:1 1 0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;gap:6px!important;padding:16px 18px!important;min-width:0!important;box-sizing:border-box!important}
+.paris-tech-label{font-weight:600!important;font-size:11px!important;letter-spacing:.5px!important;text-transform:uppercase!important;margin:2px 0 4px!important;color:#6b7280!important}
+.paris-tech-value{font-size:14px!important;font-weight:600!important;color:#102a43!important;overflow-wrap:anywhere!important}
+.paris-tech-actions{display:flex!important;gap:4px!important;justify-content:center!important;margin-top:4px!important}
+.paris-inline-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:7px 0 6px}
+.paris-inline-btn{padding:4px 8px!important;margin:0!important;font-size:11px!important;line-height:1.2!important;border-radius:6px!important;box-shadow:none!important;background:#fff!important;color:#475467!important;border:1px solid #d0d5dd!important}
+.paris-inline-btn:hover{transform:none!important;box-shadow:none!important;background:#f8fafc!important}
+.paris-add-btn{background:#ecfdf3!important;color:#067647!important;border-color:#abefc6!important;font-weight:700!important}
+.paris-add-btn:hover{background:#dcfae6!important}
+.paris-delete-btn{background:#fef3f2!important;color:#b42318!important;border-color:#fecdca!important;font-weight:700!important}
+.paris-delete-btn:hover{background:#fee4e2!important}
+.paris-manual-pill{display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:999px;padding:3px 5px 3px 9px;font-size:11px;color:#475467}
+@media(max-width:1200px),(max-device-width:900px){.paris-tech-strip{flex-direction:column!important}.paris-tech-item{width:100%!important;flex:0 0 auto!important;padding:14px 16px!important}.paris-tech-copy,.paris-tech-label,.paris-tech-value{width:100%!important;text-align:center!important}.paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}}
+.preview-viewport.preview-mobile .paris-tech-strip{flex-direction:column!important}.preview-viewport.preview-mobile .paris-tech-item{width:100%!important;flex:0 0 auto!important}.preview-viewport.preview-mobile .paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}
+</style>
 </head>
 <body>
 <div class="header" style="background:#000273;"><img src="https://cl-paris-media-hub.ecomm.cencosud.com/files/logos_paris/logos_web/Header_Brand_125_60x60.svg?v=1" alt="Paris" style="max-height:40px;height:auto;width:auto;display:block;"/><span>Creador de Descripciones Largas</span></div>
@@ -900,6 +943,8 @@ function importExcel() {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     excelRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
     if (!excelRows.length) return alert('❌ No se encontraron filas en el Excel.');
+    parisSuggestionBaselines.clear();
+    excelRows.forEach((r,i)=>parisSuggestionBaselines.set(i,JSON.parse(JSON.stringify(r))));
     detectClaims();
     detectSmartSuggestions();
     renderQualityPanel();
@@ -934,17 +979,21 @@ function buildArchivoDescargableUrl(valor) {
 
 function buildManualesChip(botonTexto, urls) {
   const label = String(botonTexto || '').trim();
-  const validUrls = (urls || []).map(u => buildArchivoDescargableUrl(u)).filter(Boolean);
+  const validUrls = (urls || [])
+    .map(u => buildArchivoDescargableUrl(u))
+    .filter(Boolean)
+    .slice(0, 3);
 
   if (!label || !validUrls.length) return '';
 
-  // Solo Manual de Armado utiliza chip desplegable.
-  const esManualArmado = /manual\s+de\s+armado/i.test(label);
+  // Cualquier documento identificado como manual utiliza el desplegable
+  // "Manuales del producto" y permite visualizar hasta 3 archivos.
+  const esManual = /manual/i.test(label);
 
-  if (!esManualArmado) {
+  if (!esManual) {
     const url = validUrls[0];
     return `
-      <div style='margin:12px 0 8px 0;'>
+      <div style='margin:12px 0 0 0;'>
         <a class='chip-documento chip-marca chip-enlace-marca'
            href='${url}' target='_blank'
            style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:10px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);font-size:14px;font-weight:400;line-height:1.2;'>
@@ -953,12 +1002,14 @@ function buildManualesChip(botonTexto, urls) {
       </div>`;
   }
 
-  const items = validUrls.map((url, idx) =>
-    `<a href='${url}' target='_blank' style='display:block;padding:9px 12px;color:#2c3e50;text-decoration:none;font-size:13px;line-height:1.2;${idx > 0 ? "border-top:1px solid #e5e7eb;" : ""}'>Manual de Armado ${idx + 1}</a>`
-  ).join('');
+  const total = validUrls.length;
+  const items = validUrls.map((url, idx) => {
+    const itemLabel = total === 1 ? label : `${label} ${idx + 1}`;
+    return `<a href='${url}' target='_blank' style='display:block;padding:9px 12px;color:#2c3e50;text-decoration:none;font-size:13px;line-height:1.2;${idx > 0 ? "border-top:1px solid #e5e7eb;" : ""}'>${itemLabel}</a>`;
+  }).join('');
 
   return `
-    <details style='display:inline-block;margin:12px 0 8px 0;position:relative;'>
+    <details style='display:inline-block;margin:12px 0 0 0;position:relative;'>
       <summary style='list-style:none;cursor:pointer;display:inline-block;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
         <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>🔧 Manuales del producto</span>
         <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Ver documentos <span style='font-size:11px;margin-left:4px;'>▼</span></span>
@@ -1030,6 +1081,244 @@ function openSmartReview(){
 }
 
 let smartSuggestions = [];
+const parisSuggestionBaselines = new Map();
+
+function parisCleanValue(v){
+  return String(v==null?'':v).replace(/\*/g,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+function parisEsc(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function parisWeightInfo(row){
+  const groups=[
+    ['Peso Producto',['Peso Producto','Peso producto','Peso del Producto','Peso del producto']],
+    ['Peso bruto',['Peso bruto','Peso Bruto']],
+    ['Peso neto',['Peso neto','Peso Neto']],
+    ['Peso',['Peso']]
+  ];
+  for(const [label,keys] of groups){
+    for(const key of keys){
+      const value=parisCleanValue(row&&row[key]);
+      if(value) return {label,key,value};
+    }
+  }
+  return {label:'Peso',key:'Peso',value:''};
+}
+function parisTechnicalIcon(type){
+  // Iconos de la franja tecnica Paris: HTML/CSS puro, sin imagenes externas.
+  // Se mantiene exactamente la familia visual aprobada: dimensiones, capas y bolsa.
+  const blue='#27a9e8';
+  if(type==='dimensions'){
+    return `<span aria-hidden="true" style="display:flex !important;align-items:center !important;justify-content:center !important;width:44px !important;min-width:44px !important;height:44px !important;flex:0 0 44px !important;color:${blue} !important;font-size:36px !important;font-weight:400 !important;line-height:1 !important;font-family:Arial,sans-serif !important;">&#8596;</span>`;
+  }
+  if(type==='material'){
+    return `<span aria-hidden="true" style="display:block !important;position:relative !important;width:44px !important;min-width:44px !important;height:44px !important;flex:0 0 44px !important;box-sizing:border-box !important;">
+      <span style="display:block !important;position:absolute !important;left:10px !important;top:7px !important;width:24px !important;height:16px !important;border:3px solid ${blue} !important;border-radius:2px !important;transform:rotate(30deg) skewX(-30deg) !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
+      <span style="display:block !important;position:absolute !important;left:10px !important;top:15px !important;width:24px !important;height:16px !important;border:3px solid ${blue} !important;border-radius:2px !important;transform:rotate(30deg) skewX(-30deg) !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
+      <span style="display:block !important;position:absolute !important;left:10px !important;top:23px !important;width:24px !important;height:16px !important;border:3px solid ${blue} !important;border-radius:2px !important;transform:rotate(30deg) skewX(-30deg) !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
+    </span>`;
+  }
+  return `<span aria-hidden="true" style="display:block !important;position:relative !important;width:44px !important;min-width:44px !important;height:44px !important;flex:0 0 44px !important;box-sizing:border-box !important;">
+    <span style="display:block !important;position:absolute !important;left:9px !important;top:13px !important;width:26px !important;height:25px !important;border:3px solid ${blue} !important;border-radius:3px 3px 6px 6px !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
+    <span style="display:block !important;position:absolute !important;left:15px !important;top:5px !important;width:14px !important;height:12px !important;border:3px solid ${blue} !important;border-bottom:0 !important;border-radius:9px 9px 0 0 !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
+  </span>`;
+}
+function buildParisTechnicalStrip(row,rowIndex=null,showControls=false,compactTop=false){
+  const dimensions=parisCleanValue(get(row,['Dimensiones']));
+  const material=parisCleanValue(get(row,['Material','Composición Material','Composicion Material']));
+  const w=parisWeightInfo(row);
+  const items=[];
+  if(dimensions) items.push({type:'dimensions',label:'Dimensiones',value:dimensions});
+  if(material) items.push({type:'material',label:'Material',value:material});
+  if(w.value) items.push({type:'weight',label:w.label,value:w.value});
+  if(!items.length) return '';
+  const parts=[];
+  items.forEach((it,idx)=>{
+    if(idx) parts.push(`<span class='paris-tech-separator' aria-hidden="true">&#8203;</span>`);
+    const controls=(showControls&&rowIndex!==null)?`<div class='paris-tech-actions' style='display:flex !important;gap:4px !important;justify-content:center !important;margin-top:3px !important;'><button type='button' onclick="editParisTechnical(${Number(rowIndex)},'${it.type}')" title='Editar ${it.label}' aria-label='Editar ${it.label}' style='display:inline-flex !important;align-items:center !important;justify-content:center !important;width:24px !important;height:24px !important;padding:0 !important;border:1px solid #d0d5dd !important;border-radius:6px !important;background:#fff !important;color:#667085 !important;font-size:12px !important;line-height:1 !important;cursor:pointer !important;'>✎</button><button type='button' onclick="deleteParisTechnical(${Number(rowIndex)},'${it.type}')" title='Eliminar ${it.label}' aria-label='Eliminar ${it.label}' style='display:inline-flex !important;align-items:center !important;justify-content:center !important;width:24px !important;height:24px !important;padding:0 !important;border:1px solid #f2c7c3 !important;border-radius:6px !important;background:#fff !important;color:#b42318 !important;font-size:14px !important;line-height:1 !important;cursor:pointer !important;'>×</button></div>`:'';
+    parts.push(`<div class='paris-tech-item'>${parisTechnicalIcon(it.type)}<div class='paris-tech-copy' style='display:block !important;min-width:0 !important;color:#102a43 !important;line-height:1.25 !important;'><div class='paris-tech-label' style='display:block !important;font-weight:600 !important;font-size:11px !important;letter-spacing:.5px !important;text-transform:uppercase !important;margin:2px 0 4px 0 !important;color:#6b7280 !important;'>${parisEsc(it.label)}</div><div class='paris-tech-value' style='display:block !important;font-size:14px !important;font-weight:600 !important;color:#102a43 !important;overflow-wrap:anywhere !important;'>${parisEsc(it.value)}</div>${controls}</div></div>`);
+  });
+  return `<style>.paris-tech-strip{display:flex!important;flex-direction:row!important;align-items:stretch!important;width:100%!important;max-width:100%!important}.paris-tech-strip .paris-tech-item{display:flex!important;flex:1 1 0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;gap:6px!important;padding:16px 18px!important;min-width:0!important;box-sizing:border-box!important}.paris-tech-strip .paris-tech-separator{display:block!important;width:1px!important;min-width:1px!important;height:auto!important;min-height:72px!important;align-self:stretch!important;background:#d9e1e8!important;flex:0 0 1px!important;margin:10px 0!important}@media(max-width:1200px),(max-device-width:900px){.paris-tech-strip{flex-direction:column!important}.paris-tech-strip .paris-tech-item{width:100%!important;flex:0 0 auto!important;padding:14px 16px!important}.paris-tech-strip .paris-tech-copy,.paris-tech-strip .paris-tech-label,.paris-tech-strip .paris-tech-value{width:100%!important;text-align:center!important}.paris-tech-strip .paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}}</style><div class='paris-tech-strip' style='display:flex;align-items:stretch;width:100%;max-width:100%;margin:${compactTop ? '-8px' : '-14px'} 0 14px 0 !important;background:#ffffff;border:1px solid #eceff2;border-radius:14px;overflow:hidden;box-sizing:border-box;'>${parts.join('')}</div>`;
+}
+function editParisTechnical(rowIndex,type){
+  rowIndex=Number(rowIndex); const row=excelRows[rowIndex]; if(!row)return;
+  let label='',key='',current='';
+  if(type==='dimensions'){label='Dimensiones';key='Dimensiones';current=parisCleanValue(row['Dimensiones']);}
+  else if(type==='material'){label='Material';key='Material';current=parisCleanValue(get(row,['Material','Composición Material','Composicion Material']));}
+  else {const w=parisWeightInfo(row);label=w.label;key=w.key;current=w.value;}
+  const edited=window.prompt('Editar '+label+':',current); if(edited===null)return;
+  const value=parisCleanValue(edited); if(!value)return alert('El valor no puede quedar vacío.');
+  row[key]=value;
+  smartSuggestions.forEach(s=>{if(s.rowIndex===rowIndex&&s.status==='Aplicado'&&((type==='dimensions'&&s.type==='dimensions')||(type==='material'&&s.type==='material')||(type==='weight'&&s.type==='weight'))) {s.normalized=value;s.value=value;}});
+  renderGroupedSuggestions(); updateTables();
+}
+function deleteParisTechnical(rowIndex,type){
+  rowIndex=Number(rowIndex); const row=excelRows[rowIndex]; if(!row)return;
+  if(type==='dimensions') row['Dimensiones']='';
+  else if(type==='material'){['Material','Composición Material','Composicion Material'].forEach(k=>{if(k in row)row[k]='';});}
+  else ['Peso Producto','Peso producto','Peso del Producto','Peso del producto','Peso bruto','Peso Bruto','Peso neto','Peso Neto','Peso'].forEach(k=>{if(k in row)row[k]='';});
+  smartSuggestions.forEach(s=>{if(s.rowIndex===rowIndex&&s.status==='Aplicado'&&((type==='dimensions'&&s.type==='dimensions')||(type==='material'&&s.type==='material')||(type==='weight'&&s.type==='weight')))s.status='Sugerencia';});
+  renderGroupedSuggestions(); updateTables();
+}
+function parisSuggestionTypeLabel(type){return ({claim:'Claim',unmapped:'Característica',care:'Cuidado de Uso',dimensions:'Dimensiones',material:'Material',weight:'Peso',technology:'Tecnología',youtube:'Video YouTube'})[type]||'Sugerencia';}
+function toggleParisSuggestionForm(rowIndex){
+  const form=document.getElementById('parisManualSuggestionForm_'+Number(rowIndex));
+  if(!form) return;
+  const isHidden=form.style.display==='none'||!form.style.display;
+  form.style.display=isHidden?'flex':'none';
+  if(isHidden){
+    const input=form.querySelector('input');
+    if(input) setTimeout(()=>input.focus(),30);
+  }
+}
+function updateParisManualSuggestionInput(rowIndex){
+  const form=document.getElementById('parisManualSuggestionForm_'+Number(rowIndex));
+  if(!form)return;
+  const select=form.querySelector('select');
+  const input=form.querySelector('input');
+  if(!input)return;
+  const isClaim=select&&select.value==='claim';
+  const isYoutube=select&&select.value==='youtube';
+  if(isClaim){
+    input.setAttribute('list','parisClaimOptions_'+Number(rowIndex));
+    input.placeholder='Selecciona o escribe un Claim';
+  }else{
+    input.removeAttribute('list');
+    input.placeholder=isYoutube?'Pega un link de YouTube':'Escribe la sugerencia';
+  }
+}
+function addParisSuggestion(rowIndex){
+  rowIndex=Number(rowIndex); const row=excelRows[rowIndex]; if(!row)return;
+  const form=document.getElementById('parisManualSuggestionForm_'+rowIndex);
+  if(!form)return;
+  const select=form.querySelector('select');
+  const input=form.querySelector('input');
+  const t=select?select.value:'unmapped';
+  const value=parisCleanValue(input?input.value:'');
+  if(!value)return alert('Escribe el contenido de la sugerencia.');
+  const sku=get(row,['SKU']);
+  if(!parisSuggestionBaselines.has(rowIndex)) parisSuggestionBaselines.set(rowIndex,JSON.parse(JSON.stringify(row)));
+  if(t==='claim'){
+    const claim=ICONO_OPTIONS.find(x=>x.toLowerCase()===value.toLowerCase());
+    if(!claim)return alert('Selecciona un Claim válido de la lista.');
+    const existing=getExistingIcons(row);
+    if(existing.some(x=>x.toLowerCase()===claim.toLowerCase()))return alert('Ese Claim ya está agregado en esta ficha.');
+    const duplicate=claimSuggestions.some(s=>s.rowIndex===rowIndex&&String(s.label||'').toLowerCase()===claim.toLowerCase()&&s.status!=='Ignorado');
+    if(duplicate)return alert('Ese Claim ya existe para esta ficha.');
+    const field=firstEmptyIconField(row);
+    if(!field)return alert('⚠️ El SKU '+sku+' ya tiene ocupados Icono 1–6.');
+    row[field]=claim;
+    claimSuggestions.push({rowIndex,sku,label:claim,source:'Manual',matched:claim,excerpt:'Agregado manualmente',status:'Aplicado',already:false,appliedField:field,manual:true});
+  }else{
+    if(t==='youtube' && !cleanYoutubeUrl(value)) return alert('Ingresa una URL válida de YouTube (youtube.com, youtu.be, Shorts o Live).');
+    const duplicate=smartSuggestions.some(s=>s.rowIndex===rowIndex&&s.type===t&&parisCleanValue(s.normalized||s.value).toLowerCase()===value.toLowerCase()&&s.status!=='Ignorado');
+    if(duplicate)return alert('Esa sugerencia ya existe para esta ficha.');
+    const sug={type:t,rowIndex,sku,title:parisSuggestionTypeLabel(t),value,normalized:value,source:'Manual',status:'Aplicado',manual:true};
+    if(t==='unmapped'){const arr=getNotasProducto(row);if(!arr.includes(value))arr.push(value);setNotasProducto(row,arr);}
+    else if(t==='care'){const arr=getCuidadosUso(row);if(!arr.includes(value))arr.push(value);setCuidadosUso(row,arr);}
+    else if(t==='dimensions')row['Dimensiones']=value;
+    else if(t==='material')row['Material']=value;
+    else if(t==='youtube'){row['VideoYouTube']=value;row['Video YouTube']=value;row['YouTube']=value;}
+    else {row['Peso']=value;sug.targetKey='Peso';}
+    smartSuggestions.push(sug);
+  }
+  if(input)input.value='';
+  form.style.display='none';
+  renderGroupedSuggestions(); updateTables();
+}
+function editParisSuggestion(i){
+  const s=smartSuggestions[i]; if(!s)return;
+  if(['dimensions','material','weight'].includes(s.type)) return editParisTechnical(s.rowIndex,s.type);
+  const edited=window.prompt('Editar '+parisSuggestionTypeLabel(s.type)+':',parisCleanValue(s.normalized||s.value)); if(edited===null)return;
+  const value=parisCleanValue(edited); if(!value)return alert('El valor no puede quedar vacío.');
+  const row=excelRows[s.rowIndex]; const old=parisCleanValue(s.normalized||s.value); s.value=value;s.normalized=value;
+  if(s.status==='Aplicado'&&row){
+    if(s.type==='unmapped'){let arr=getNotasProducto(row).filter(x=>parisCleanValue(x)!==old);arr.push(value);setNotasProducto(row,arr);}
+    else if(s.type==='care'){let arr=getCuidadosUso(row).filter(x=>parisCleanValue(x)!==old);arr.push(value);setCuidadosUso(row,arr);}
+    else if(s.type==='youtube'){
+      if(!cleanYoutubeUrl(value)){s.value=old;s.normalized=old;return alert('Ingresa una URL válida de YouTube (youtube.com, youtu.be, Shorts o Live).');}
+      row['VideoYouTube']=value;row['Video YouTube']=value;row['YouTube']=value;
+    }
+  }
+  renderGroupedSuggestions(); updateTables();
+}
+function editParisClaimSuggestion(i){
+  const s=claimSuggestions[i]; if(!s)return;
+  const edited=window.prompt('Editar Claim:',String(s.label||'')); if(edited===null)return;
+  const claim=ICONO_OPTIONS.find(x=>x.toLowerCase()===String(edited).trim().toLowerCase());
+  if(!claim)return alert('Selecciona un Claim válido: '+ICONO_OPTIONS.join(', '));
+  const row=excelRows[s.rowIndex]; if(!row)return;
+  if(claimSuggestions.some((x,idx)=>idx!==i&&x.rowIndex===s.rowIndex&&String(x.label||'').toLowerCase()===claim.toLowerCase()&&x.status!=='Ignorado')) return alert('Ese Claim ya existe para esta ficha.');
+  const field=s.appliedField || Object.keys(row).find(k=>/^Icono [1-6]$/.test(k)&&String(row[k]||'').toLowerCase()===String(s.label||'').toLowerCase()) || firstEmptyIconField(row);
+  if(!field)return alert('⚠️ No hay espacio disponible en Icono 1–6.');
+  row[field]=claim; s.label=claim; s.matched=claim; s.appliedField=field; s.status='Aplicado'; s.manual=true;
+  renderGroupedSuggestions(); updateTables();
+}
+function deleteParisClaimSuggestion(i){
+  const s=claimSuggestions[i]; if(!s)return;
+  const row=excelRows[s.rowIndex];
+  if(row){
+    if(s.appliedField && String(row[s.appliedField]||'').toLowerCase()===String(s.label||'').toLowerCase()) row[s.appliedField]='';
+    else for(let n=1;n<=6;n++){const k='Icono '+n;if(String(row[k]||'').toLowerCase()===String(s.label||'').toLowerCase()){row[k]='';break;}}
+  }
+  claimSuggestions.splice(i,1); renderGroupedSuggestions(); updateTables();
+}
+function deleteParisSuggestion(i){
+  const s=smartSuggestions[i]; if(!s)return; const row=excelRows[s.rowIndex];
+  if(row&&s.status==='Aplicado'){
+    const value=parisCleanValue(s.normalized||s.value);
+    if(s.type==='unmapped')setNotasProducto(row,getNotasProducto(row).filter(x=>parisCleanValue(x)!==value));
+    else if(s.type==='care')setCuidadosUso(row,getCuidadosUso(row).filter(x=>parisCleanValue(x)!==value));
+    else if(s.type==='dimensions')row['Dimensiones']='';
+    else if(s.type==='material')row['Material']='';
+    else if(s.type==='weight')row[s.targetKey||'Peso']='';
+    else if(s.type==='youtube'){row['VideoYouTube']='';row['Video YouTube']='';row['YouTube']='';}
+  }
+  smartSuggestions.splice(i,1); renderGroupedSuggestions(); updateTables();
+}
+function removeAppliedParisSuggestions(rowIndex){
+  rowIndex=Number(rowIndex); const base=parisSuggestionBaselines.get(rowIndex); if(base) excelRows[rowIndex]=JSON.parse(JSON.stringify(base));
+  smartSuggestions=smartSuggestions.filter(s=>!(s.rowIndex===rowIndex&&s.status==='Aplicado'));
+  claimSuggestions=claimSuggestions.filter(s=>!(s.rowIndex===rowIndex&&s.status==='Aplicado'));
+  detectAllSuggestions(); updateTables();
+}
+function buildParisManualControls(rowIndex){
+  const smartEntries=smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.rowIndex===Number(rowIndex)&&x.s.manual&&x.s.status==='Aplicado'&&!['dimensions','material','weight'].includes(x.s.type));
+  const claimEntries=claimSuggestions.map((s,i)=>({kind:'claim',s,i})).filter(x=>x.s.rowIndex===Number(rowIndex)&&x.s.manual&&x.s.status==='Aplicado');
+  const entries=[...claimEntries,...smartEntries];
+  if(!entries.length)return '';
+  return `<div class='paris-inline-tools'>${entries.map(({kind,s,i})=>{
+    const label=kind==='claim'?'Claim':parisSuggestionTypeLabel(s.type);
+    const value=kind==='claim'?s.label:(s.normalized||s.value);
+    const edit=kind==='claim'?`editParisClaimSuggestion(${i})`:`editParisSuggestion(${i})`;
+    const del=kind==='claim'?`deleteParisClaimSuggestion(${i})`:`deleteParisSuggestion(${i})`;
+    return `<span class='paris-manual-pill'><span>${parisEsc(label)}: ${parisEsc(value)}</span><button type='button' class='paris-inline-btn' onclick='${edit}'>✎</button><button type='button' class='paris-inline-btn paris-delete-btn' onclick='${del}' style='color:#b42318!important;border-color:#f2c7c3!important;'>×</button></span>`;
+  }).join('')}</div>`;
+}
+function buildParisFichaTools(rowIndex){
+  const hasApplied=smartSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado')||claimSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado');
+  return `<div class='paris-inline-tools'>
+    <button type='button' class='paris-inline-btn paris-add-btn' onclick='toggleParisSuggestionForm(${Number(rowIndex)})'>＋ Agregar sugerencia</button>
+    ${hasApplied?`<button type='button' class='paris-inline-btn paris-delete-btn' onclick='removeAppliedParisSuggestions(${Number(rowIndex)})'>↶ Eliminar sugerencias</button>`:''}
+  </div>
+  <div id='parisManualSuggestionForm_${Number(rowIndex)}' style='display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#fffaf4;border:1px solid #f3dfc7;border-radius:8px;'>
+    <select onchange='updateParisManualSuggestionInput(${Number(rowIndex)})' style='font-size:12px;padding:6px 8px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;'>
+      <option value='unmapped'>Característica</option>
+      <option value='claim'>Claim</option>
+      <option value='care'>Cuidado de Uso</option>
+      <option value='dimensions'>Dimensiones</option>
+      <option value='material'>Material</option>
+      <option value='weight'>Peso</option>
+      <option value='youtube'>Video YouTube</option>
+    </select>
+    <input type='text' placeholder='Escribe la sugerencia' style='flex:1 1 180px;min-width:0;font-size:12px;padding:6px 8px;border:1px solid #d0d5dd;border-radius:6px;' onkeydown="if(event.key==='Enter'){event.preventDefault();addParisSuggestion(${Number(rowIndex)});}">
+    <datalist id='parisClaimOptions_${Number(rowIndex)}'>${ICONO_OPTIONS.map(v=>`<option value='${parisEsc(v)}'></option>`).join('')}</datalist>
+    <button type='button' onclick='addParisSuggestion(${Number(rowIndex)})' style='padding:6px 9px!important;margin:0!important;font-size:11px!important;border:1px solid #ff6200!important;border-radius:6px!important;background:#ff6200!important;color:#fff!important;cursor:pointer!important;box-shadow:none!important;'>Agregar</button>
+  </div>
+  ${buildParisManualControls(rowIndex)}`;
+}
+
+
 
 function allTextFields(row){
   return [
@@ -1114,6 +1403,20 @@ function detectDimensions(row,rowIndex,sku){
       dimensionItems:found, normalized, source:[...new Set(found.map(x=>x.source))].join(', '),
       status:'Sugerencia'
     });
+  }
+}
+
+function detectWeight(row,rowIndex,sku){
+  if(parisWeightInfo(row).value) return;
+  const rules=[
+    {label:'Peso neto',key:'Peso neto',rx:/\bpeso\s+neto\s*(?:de|:)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gramos?|lb|lbs)\b/i},
+    {label:'Peso bruto',key:'Peso bruto',rx:/\bpeso\s+bruto\s*(?:de|:)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gramos?|lb|lbs)\b/i},
+    {label:'Peso Producto',key:'Peso Producto',rx:/\bpeso\s+(?:del\s+)?producto\s*(?:de|:)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gramos?|lb|lbs)\b/i},
+    {label:'Peso',key:'Peso',rx:/\bpeso\s*(?:de|:)?\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gramos?|lb|lbs)\b/i}
+  ];
+  for(const f of allTextFields(row)){
+    const text=String(f.value||'');
+    for(const r of rules){const m=text.match(r.rx);if(m){const unit=/^gr|gram/i.test(m[2])?'g':m[2];const value=parisCleanValue(m[1]+' '+unit);smartSuggestions.push({type:'weight',icon:'⚖',rowIndex,sku,title:r.label+' detectado',value,normalized:value,targetKey:r.key,source:f.name,excerpt:excerptAround(f.value,m[0]),status:'Sugerencia'});return;}}
   }
 }
 
@@ -1517,6 +1820,9 @@ function detectSmartSuggestions(){
   smartSuggestions=[];
   excelRows.forEach((row,rowIndex)=>{
     const sku=get(row,['SKU']);
+    detectMaterial(row,rowIndex,sku);
+    detectDimensions(row,rowIndex,sku);
+    detectWeight(row,rowIndex,sku);
     detectarTecnologias(row).forEach(t=>{
       smartSuggestions.push({
         type:'technology', icon:'⚡', rowIndex, sku,
@@ -1539,6 +1845,7 @@ function applySmartSuggestion(i,silent=false){
   const row=excelRows[s.rowIndex]; if(!row) return false;
   if(s.type==='material') setSmartField(row,'Material',s.normalized);
   else if(s.type==='dimensions') setSmartField(row,'Dimensiones',s.normalized);
+  else if(s.type==='weight') setSmartField(row,s.targetKey||'Peso',s.normalized||s.value);
   else if(s.type==='technology'){
     const techs=getTecnologiasAplicadas(row);
     if(!techs.includes(s.normalized)) techs.push(s.normalized);
@@ -1630,6 +1937,9 @@ function fallbackCopySku(value,done){
 function getSectionItems(sectionKey){
   if(sectionKey==='claims') return claimSuggestions.map((s,i)=>({kind:'claim',s,i}));
   if(sectionKey==='tech') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology');
+  if(sectionKey==='dimensions') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='dimensions');
+  if(sectionKey==='material') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material');
+  if(sectionKey==='weight') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='weight');
   if(sectionKey==='url') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='url');
   if(sectionKey==='unmapped') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='unmapped');
   if(sectionKey==='care') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='care'||x.s.type==='care_conflict');
@@ -1768,6 +2078,9 @@ function renderGroupedSuggestions(){
   const sections=[
     {key:'claims',title:'🏷️ Claims / Logos',items:claimSuggestions.map((s,i)=>({kind:'claim',s,i}))},
     {key:'tech',title:'⚡ Tecnologías',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology')},
+    {key:'dimensions',title:'↔ Dimensiones',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='dimensions')},
+    {key:'material',title:'▱ Material',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material')},
+    {key:'weight',title:'⚖ Peso',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='weight')},
     {key:'unmapped',title:'💡 Agregar Información Adicional',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='unmapped')},
     {key:'care',title:'🧺 Agregar Cuidados de Uso',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='care'||x.s.type==='care_conflict')},
     {key:'url',title:'🔗 URLs para revisar',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='url')}
@@ -1796,6 +2109,10 @@ function renderGroupedSuggestions(){
       const canApply=s.status==='Sugerencia';
       body=`<div class="ai-status">${escClaim(s.title)}</div>${Array.isArray(s.dimensionItems)?`<div class="dimension-list">${s.dimensionItems.map(d=>`<div class="dimension-row"><strong>${escClaim(d.label||'Medida')}</strong><span>${escClaim(d.measure)}</span></div>`).join('')}</div>`:''}<div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
       actions=canApply?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Completar Dimensiones</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
+    }else if(s.type==='weight'){
+      const canApply=s.status==='Sugerencia';
+      body=`<div class="ai-status">${escClaim(s.title||'Peso detectado')}</div><span class="suggestion-keyword">${escClaim(s.normalized||s.value)}</span><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
+      actions=canApply?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Completar Peso</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:'';
     }else if(s.type==='url'){
       body=`<div class="ai-status">URL posiblemente problemática</div><div class="suggestion-detail">${escClaim(s.excerpt||s.value||'')}</div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
       actions='<span class="review-only">Solo alerta · requiere revisión</span>';
@@ -1813,6 +2130,7 @@ function renderGroupedSuggestions(){
     }
     const selectable=(s.status==='Sugerencia' && !(x.kind==='smart' && s.type==='url'));
     const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="${x.kind}" data-index="${x.i}" aria-label="Seleccionar sugerencia SKU ${sku}">`:'';
+    if(x.kind==='smart' && s.type!=='url' && s.status==='Aplicado'){actions=`<div class="ai-actions"><button onclick="editParisSuggestion(${x.i})">✎ Editar</button><button onclick="deleteParisSuggestion(${x.i})">× Eliminar</button></div>`;}
     return `<div class="suggestion-mini-card"><div class="suggestion-mini-top"><div class="suggestion-mini-select">${checkbox}<span class="suggestion-mini-sku">SKU ${sku}</span></div>${copy}</div><div style="margin-top:8px;">${body}</div>${actions}</div>`;
   }
 
@@ -1821,7 +2139,8 @@ function renderGroupedSuggestions(){
     const reviewSec=sec.items.filter(x=>x.s.status==='Revisar').length;
     const secId='suggestionSection_'+sec.key;
     // Por defecto se abre. Si el usuario lo cerro, ese estado se conserva tras aprobar, rechazar o reanalizar.
-    const isOpen = Object.prototype.hasOwnProperty.call(suggestionSectionOpenState,sec.key) ? suggestionSectionOpenState[sec.key] : true;
+    const isOpen = (sec.key!=='url' && pendingSec===0) ? false : (Object.prototype.hasOwnProperty.call(suggestionSectionOpenState,sec.key) ? suggestionSectionOpenState[sec.key] : true);
+    if(sec.key!=='url' && pendingSec===0) suggestionSectionOpenState[sec.key]=false;
     const canBulk=sec.key!=='url' && pendingSec>0;
     const bulkBtn=canBulk
       ? `<button type="button" class="section-approve-btn" onclick="event.stopPropagation();approveAllInSection('${sec.key}')">✓ Aprobar todo</button>`
@@ -2113,7 +2432,7 @@ const imgMarca = buildMarcaUrl(_rawMarca);
     const imgMaterial = get(row, ['URL Imagen Material']);
     const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
     const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
-    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
+    const videoUrl = getFirstNonEmpty(row, ['VideoYouTube','Video YouTube','YouTube']);
     const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
@@ -2158,27 +2477,21 @@ const cta = metaDescripcion.trim(); // sin fallback
   </label>
 </div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
+${buildParisFichaTools(index)}
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${renderNotasProductoChips(row)}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 0 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
-${renderNotasProductoChips(row)}
 ${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
 ${difBlock1}
 ${difBlock23}
 ${!hayImagenDiferenciadora ? botonHTML : ''}`;
-    if (material || (dimensiones && dimensiones.trim() !== '')) {
-      html += `<div style='margin:20px 0;'></div>
-<div style='border:1px solid #d9d9d9;border-radius:10px;background:#fff;overflow:hidden;'>
-<div style='background:#e5e7eb;color:#111827;padding:11px 15px;text-align:center;line-height:1.35;'><div style='font-size:18px;font-weight:700;margin:0 0 4px 0;'>Nuestros Productos</div><div style='font-size:16px;font-weight:400;'>Ficha técnica y especificaciones</div></div><table style='width:100%;border-collapse:collapse;table-layout:auto;'>`;
-      if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:104px;min-width:104px;max-width:104px;padding:20px 14px;text-align:center;vertical-align:middle;overflow:visible;'><img src='${imgMaterial || defaultImagenes.material}' alt='Material'></td><td style='padding:20px 16px;vertical-align:middle;width:auto;max-width:none;overflow:visible;white-space:normal;overflow-wrap:anywhere;word-break:normal;'><strong>Material:</strong> ${material}</td></tr>`;
-      if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:104px;min-width:104px;max-width:104px;padding:20px 14px;text-align:center;vertical-align:middle;overflow:visible;'><img src='${imgDimensiones || defaultImagenes.dimensiones}' alt='Dimensiones'></td><td style='padding:20px 16px;vertical-align:middle;width:auto;max-width:none;overflow:visible;white-space:normal;overflow-wrap:anywhere;word-break:normal;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
-      html += `</table></div>`;
-    }
+    html += buildParisTechnicalStrip(row,index,true,!!botonHTML);
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
   
@@ -2211,7 +2524,7 @@ function exportHtmlToExcel(mode = 'all') {
     const imgMaterial = get(row, ['URL Imagen Material']);
     const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
     const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
-    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
+    const videoUrl = getFirstNonEmpty(row, ['VideoYouTube','Video YouTube','YouTube']);
     const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
@@ -2250,24 +2563,17 @@ if (dif2 || dif3) {
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${renderNotasProductoChips(row)}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 0 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
-${renderNotasProductoChips(row)}
 ${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
 ${difBlock1}
 ${difBlock23}
 ${!hayImagenDiferenciadora ? botonHTML : ''}`;
-    if (material || (dimensiones && dimensiones.trim() !== '')) {
-      html += `<div style='margin:20px 0;'></div>
-<div style='border:1px solid #d9d9d9;border-radius:10px;background:#fff;overflow:hidden;'>
-<div style='background:#e5e7eb;color:#111827;padding:11px 15px;text-align:center;line-height:1.35;'><div style='font-size:18px;font-weight:700;margin:0 0 4px 0;'>Nuestros Productos</div><div style='font-size:16px;font-weight:400;'>Ficha técnica y especificaciones</div></div><table style='width:100%;border-collapse:collapse;table-layout:auto;'>`;
-      if (material) html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:104px;min-width:104px;max-width:104px;padding:20px 14px;text-align:center;vertical-align:middle;overflow:visible;'><img src='${imgMaterial || defaultImagenes.material}'></td><td style='padding:20px 16px;vertical-align:middle;width:auto;max-width:none;overflow:visible;white-space:normal;overflow-wrap:anywhere;word-break:normal;'><strong>Material:</strong> ${material}</td></tr>`;
-      if (dimensiones && dimensiones.trim() !== '') html += `<tr style='border-bottom:1px solid #e5e7eb;'><td style='width:104px;min-width:104px;max-width:104px;padding:20px 14px;text-align:center;vertical-align:middle;overflow:visible;'><img src='${imgDimensiones || defaultImagenes.dimensiones}'></td><td style='padding:20px 16px;vertical-align:middle;width:auto;max-width:none;overflow:visible;white-space:normal;overflow-wrap:anywhere;word-break:normal;'><strong>Dimensiones:</strong> ${dimensiones}</td></tr>`;
-      html += `</table></div>`;
-    }
     html = cleanForCSV(html);
+    html += buildParisTechnicalStrip(row,null,false,!!botonHTML);
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
     html += `</div>`;
     html = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
@@ -2286,10 +2592,14 @@ function limpiarTodo() {
   exportSelection.clear();
   updateExportSelectionCount();
   claimSuggestions = [];
+  smartSuggestions = [];
+  parisSuggestionBaselines.clear();
+  Object.keys(suggestionSectionOpenState).forEach(k=>delete suggestionSectionOpenState[k]);
   const cp=document.getElementById('claimsPanel'); if(cp) cp.style.display='none';
   const qp=document.getElementById('qualityPanel'); if(qp){qp.style.display='none';qp.innerHTML='';}
   setPreviewMode('desktop');
   const cr=document.getElementById('claimsResults'); if(cr) cr.innerHTML='';
+  const sr=document.getElementById('smartResults'); if(sr) sr.innerHTML='';
   const cs=document.getElementById('claimsSummary'); if(cs) cs.textContent='';
   alert('🧹 Se limpiaron los datos y las tablas correctamente.');
 }
