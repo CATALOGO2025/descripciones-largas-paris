@@ -109,9 +109,50 @@ const ICONO_URLS = {
   "Sin Aceite": "https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/icono-sin-aceite.png",
   "Sin Parabenos": "https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/icono-sin-parabenos.png",
   "Sin Sulfatos": "https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/icono-sin-sulfatos.png",
-  "Vegano": "https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/icono-vegano.png"
+  "Vegano": "https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/icono-vegano.png",
+  "Giro 360° (Silla Auto)": "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_giro.png",
+  "Reclinable (Silla Auto)": "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_reclinable.png",
+  "Grupo (Silla Auto)": "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_grupo.png",
+  "Peso (Silla Auto)": "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_peso.png",
+  "Uso recomendado (Silla Auto)": "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_uso.png"
 };
 const ICONO_OPTIONS = Object.keys(ICONO_URLS);
+const PARIS_SEAT_CLAIM_NAMES = ICONO_OPTIONS.filter(name=>/\(Silla Auto\)$/.test(name));
+
+const PARIS_SEAT_CLAIM_CONFIG={
+  'Giro 360° (Silla Auto)':{title:'Giro 360°',icon:'rotate',detail:'Rotación completa'},
+  'Reclinable (Silla Auto)':{title:'Reclinable',icon:'recline',detail:''},
+  'Grupo (Silla Auto)':{title:'Grupo',icon:'group',detail:''},
+  'Peso (Silla Auto)':{title:'Peso del producto',icon:'weight',detail:''},
+  'Uso recomendado (Silla Auto)':{title:'Uso recomendado',icon:'usage',detail:''}
+};
+function parisSeatManualClaims(row){return pickIconValues(row).filter(v=>!!PARIS_SEAT_CLAIM_CONFIG[v]);}
+function parisActivateSeatClaim(row,claim){
+  if(!PARIS_SEAT_CLAIM_CONFIG[claim])return;
+  if(!row.__parisSeatSourceSnapshot)row.__parisSeatSourceSnapshot=JSON.stringify(row);
+  row.__parisSeatClaimApproved=true;
+  if(!row.__parisSeatManualDetails)row.__parisSeatManualDetails={};
+  const config=PARIS_SEAT_CLAIM_CONFIG[claim];
+  if(!Object.prototype.hasOwnProperty.call(row.__parisSeatManualDetails,config.title)){
+    const typed=window.prompt('Texto para '+config.title+' (puedes editarlo después):',config.detail);
+    row.__parisSeatManualDetails[config.title]=typed===null?config.detail:typed.trim();
+  }
+}
+function parisSyncSeatManualClaims(row){
+  if(!row)return;
+  const names=new Set(parisSeatManualClaims(row).map(v=>PARIS_SEAT_CLAIM_CONFIG[v].title));
+  if(row.__parisSeatManualDetails)for(const name of Object.keys(row.__parisSeatManualDetails))if(!names.has(name))delete row.__parisSeatManualDetails[name];
+}
+
+function parisIsCarSeatProduct(row){
+  if(!row)return false;
+  const fields=Object.entries(row).filter(([key,value])=>value!=null && /nombre|producto|descrip|categor|tipo|grupo|familia|titulo|title|html/i.test(key));
+  const text=fields.map(([,value])=>String(value)).join(' ').replace(/<[^>]*>/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  return /\b(?:silla\s*(?:de\s*|para\s*)?auto|sillaauto|sill\s*auto|silla\s+convertible|silla\s+infantil\s+(?:de|para)\s+auto|alzador(?:\s+(?:de|para)\s+auto)?|butaca\s+(?:infantil|de\s+auto|para\s+auto)|booster|portabebe\s+(?:de|para)\s+auto|sistema\s+de\s+retencion\s+infantil)\b/.test(text);
+}
+function parisClaimOptionsForRow(row){
+  return parisIsCarSeatProduct(row)?ICONO_OPTIONS:ICONO_OPTIONS.filter(name=>!PARIS_SEAT_CLAIM_NAMES.includes(name));
+}
 
 // === Tecnologías detectables (chips HTML, independientes de Icono 1-6) ===
 const TECNOLOGIAS = [
@@ -349,7 +390,8 @@ function pickIconValues(row) {
 }
 
 function renderIconosVisual(iconosArr) {
-  if (!iconosArr || !iconosArr.length) return "";
+  iconosArr=(iconosArr||[]).filter(v=>!PARIS_SEAT_CLAIM_CONFIG[v]);
+  if (!iconosArr.length) return "";
   const imgs = iconosArr.map(label => {
     const src = ICONO_URLS[label];
     const alt = label;
@@ -361,7 +403,8 @@ function renderIconosVisual(iconosArr) {
 
 // Los claims tradicionales (Vegano, Cruelty Free, etc.) mantienen sus LOGOS/IMÁGENES.
 function renderIconosExport(iconosArr) {
-  if (!iconosArr || !iconosArr.length) return "";
+  iconosArr=(iconosArr||[]).filter(v=>!PARIS_SEAT_CLAIM_CONFIG[v]);
+  if (!iconosArr.length) return "";
   const imgs = iconosArr.map(label => {
     const src = ICONO_URLS[label];
     const alt = label;
@@ -596,43 +639,18 @@ function formatMetaDescripcion(texto) {
     return bloques.map(b => `<p style='${style}'>${b.replace(/\r?\n/g, '<br>')}</p>`).join('');
 }
 function cleanYoutubeUrl(url) {
-    if (!url) return '';
-    const raw = String(url).trim();
-    if (!raw) return '';
-
-    // También permite pegar directamente el ID de 11 caracteres.
-    if (/^[A-Za-z0-9_-]{11}$/.test(raw)) {
-        return `https://www.youtube.com/embed/${raw}?playsinline=1`;
+  const value=String(url||'').trim();if(!value)return '';
+  try{
+    const u=new URL(value);
+    const host=u.hostname.toLowerCase().replace(/^www\./,'').replace(/^m\./,'');
+    let id='';
+    if(host==='youtu.be')id=u.pathname.split('/')[1]||'';
+    else if(host==='youtube.com'||host==='youtube-nocookie.com'){
+      if(u.pathname==='/watch')id=u.searchParams.get('v')||'';
+      else if(/^\/(embed|shorts|live)\//.test(u.pathname))id=u.pathname.split('/')[2]||'';
     }
-
-    let u;
-    try { u = new URL(raw); } catch (e) { return ''; }
-
-    const host = u.hostname.replace(/^www\./, '').toLowerCase();
-    let videoId = '';
-    if (host === 'youtu.be') {
-        videoId = u.pathname.split('/').filter(Boolean)[0] || '';
-    } else if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
-        if (u.pathname === '/watch') {
-            videoId = u.searchParams.get('v') || '';
-        } else {
-            const parts = u.pathname.split('/').filter(Boolean);
-            const type = parts[0] || '';
-            if (['embed','shorts','live'].includes(type)) videoId = parts[1] || '';
-        }
-    }
-    videoId = String(videoId).trim().replace(/[^A-Za-z0-9_-]/g, '');
-    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return '';
-    return `https://www.youtube.com/embed/${videoId}?playsinline=1`;
-}
-
-function getFirstNonEmpty(row, keys) {
-    for (const k of keys) {
-        if (row && k in row && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
-            return String(row[k]).trim();
-        }
-    }
-    return '';
+    return /^[A-Za-z0-9_-]{11}$/.test(id)?'https://www.youtube.com/embed/'+id:'';
+  }catch(e){return '';}
 }
 
 // --- Helper: elimina la caja de ficha técnica si la tabla quedó vacía (sin filas) ---
@@ -812,28 +830,6 @@ img { max-width: 100%; height: auto; }
 /* === UX: Semáforo de calidad + vista previa responsive === */
 .quality-panel{display:none;margin:20px;background:#fff;border:1px solid #dfe5ec;border-radius:9px;padding:18px 20px;box-shadow:0 1px 4px rgba(16,24,40,.05)}
 .quality-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.quality-head h2{margin:0;border:0;padding:0}.quality-summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.quality-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;font-size:12px;font-weight:700;color:#344054}.quality-dot{width:9px;height:9px;border-radius:50%;display:inline-block}.quality-green{background:#22a06b}.quality-yellow{background:#f5a524}.quality-red{background:#d92d20}.quality-overall{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:7px;background:#f8fafc;border:1px solid #e5e7eb;font-size:12.5px;font-weight:700}.quality-details{margin-top:12px;border-top:1px solid #eef1f4;padding-top:10px}.quality-details summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#344054}.quality-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.quality-sku{border:1px solid #e5e9ef;border-radius:7px;padding:9px 10px;background:#fff;min-width:0}.quality-sku-top{display:flex;justify-content:space-between;gap:8px;align-items:center}.quality-status{font-size:11px;font-weight:700;white-space:nowrap}.quality-reasons{margin-top:6px;font-size:11.5px;color:#667085;line-height:1.45}.quality-reasons div+div{margin-top:3px}
-
-/* === Semáforo compacto con filtros, búsqueda y paginación === */
-.quality-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
-.quality-filters{display:flex;gap:6px;flex-wrap:wrap}
-.quality-filter{background:#fff!important;color:#344054!important;border:1px solid #dfe5ec!important;border-radius:999px!important;padding:6px 10px!important;font-size:12px!important;font-weight:700!important;margin:0!important;box-shadow:none!important}
-.quality-filter.active{background:#173f5f!important;color:#fff!important;border-color:#173f5f!important}
-.quality-search{width:220px;max-width:100%;border:1px solid #dfe5ec;border-radius:7px;padding:7px 10px;font-size:12px;box-sizing:border-box}
-.quality-list{margin-top:8px;border:1px solid #e5e9ef;border-radius:8px;overflow:hidden}
-.quality-row{display:grid;grid-template-columns:minmax(105px,150px) 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:#fff;border-bottom:1px solid #eef1f4;font-size:12px}
-.quality-row:last-child{border-bottom:0}
-.quality-row-sku{font-weight:700;white-space:nowrap}
-.quality-row-reason{color:#667085;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quality-row-status{font-size:11px;font-weight:700;white-space:nowrap}
-.quality-more{border:0!important;background:transparent!important;color:#475467!important;padding:2px 5px!important;margin:0!important;box-shadow:none!important;font-size:14px!important}
-.quality-expanded{grid-column:2 / 4;color:#667085;line-height:1.45;padding:2px 0 4px}
-.quality-expanded div+div{margin-top:3px}
-.quality-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;color:#667085;font-size:11.5px}
-.quality-page-actions{display:flex;gap:5px;align-items:center}
-.quality-page-actions button{margin:0!important;padding:4px 8px!important;font-size:11px!important;background:#fff!important;color:#344054!important;border:1px solid #dfe5ec!important;box-shadow:none!important}
-.quality-empty{padding:16px;text-align:center;color:#667085;font-size:12px}
-@media(max-width:700px){.quality-search{width:100%}.quality-row{grid-template-columns:1fr auto}.quality-row-reason{grid-column:1 / 3;white-space:normal}.quality-row-status{grid-column:2;grid-row:1}.quality-expanded{grid-column:1 / 3}.quality-footer{align-items:flex-start;flex-direction:column}}
-
 .preview-card{margin:20px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.08)}.preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:2px 2px 12px;border-bottom:1px solid #e8edf2;margin-bottom:12px}.preview-toolbar-title{font-size:13px;font-weight:700;color:#344054}.preview-mode-actions{display:flex;gap:6px}.preview-mode-btn{padding:6px 10px!important;margin:0!important;font-size:12px!important;border-radius:5px!important;box-shadow:none!important;background:#eef2f6!important;color:#344054!important;border:1px solid #d7dee7!important}.preview-mode-btn.active{background:#173f5f!important;color:#fff!important;border-color:#173f5f!important}.preview-mode-btn:hover{transform:none!important;box-shadow:none!important}.preview-viewport{width:100%;margin:0 auto;transition:max-width .2s ease}.preview-viewport.preview-mobile{max-width:390px;border:1px solid #d8dee6;border-radius:14px;padding:8px;background:#f8fafc}.preview-viewport.preview-mobile #tablesContainer{margin:0!important;padding:8px!important}.preview-viewport.preview-mobile .easy-ficha-wrapper{display:block!important}.preview-viewport.preview-mobile .easy-ficha-wrapper>div{width:100%!important;max-width:100%!important;box-sizing:border-box!important}.preview-viewport.preview-mobile table{width:100%!important;table-layout:auto!important}.preview-viewport.preview-mobile table td{max-width:none!important;white-space:normal!important;overflow-wrap:anywhere!important}
 .info-unmapped-tag{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:4px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:700;border:1px solid #fed7aa}
 @media(max-width:1100px){.quality-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.quality-grid{grid-template-columns:1fr}.preview-toolbar{align-items:flex-start}.preview-mode-actions{width:100%}}
@@ -864,7 +860,7 @@ img { max-width: 100%; height: auto; }
 
 <style>
 /* === Paris: franja tecnica + controles de edicion === */
-.paris-tech-strip{display:flex!important;flex-direction:row!important;align-items:stretch!important;width:100%!important;max-width:100%!important;margin:2px 0 14px!important;background:#fff!important;border:1px solid #eceff2!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important}
+.paris-tech-strip{display:flex!important;flex-direction:row!important;align-items:stretch!important;width:100%!important;max-width:100%!important;margin:18px 0 14px!important;background:#fff!important;border:1px solid #eceff2!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important}
 .paris-tech-separator{display:block!important;width:1px!important;min-width:1px!important;height:auto!important;min-height:72px!important;align-self:stretch!important;background:#d9e1e8!important;flex:0 0 1px!important;margin:10px 0!important}
 .paris-tech-item{display:flex!important;flex:1 1 0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;gap:6px!important;padding:16px 18px!important;min-width:0!important;box-sizing:border-box!important}
 .paris-tech-label{font-weight:600!important;font-size:11px!important;letter-spacing:.5px!important;text-transform:uppercase!important;margin:2px 0 4px!important;color:#6b7280!important}
@@ -878,14 +874,68 @@ img { max-width: 100%; height: auto; }
 .paris-delete-btn{background:#fef3f2!important;color:#b42318!important;border-color:#fecdca!important;font-weight:700!important}
 .paris-delete-btn:hover{background:#fee4e2!important}
 .paris-manual-pill{display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:999px;padding:3px 5px 3px 9px;font-size:11px;color:#475467}
-@media(max-width:1200px),(max-device-width:900px){.paris-tech-strip{flex-direction:column!important}.paris-tech-item{width:100%!important;flex:0 0 auto!important;padding:14px 16px!important}.paris-tech-copy,.paris-tech-label,.paris-tech-value{width:100%!important;text-align:center!important}.paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}}
+@media(max-width:600px){.paris-tech-strip{flex-direction:column!important}.paris-tech-item{width:100%!important;flex:0 0 auto!important;padding:14px 16px!important}.paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}}
 .preview-viewport.preview-mobile .paris-tech-strip{flex-direction:column!important}.preview-viewport.preview-mobile .paris-tech-item{width:100%!important;flex:0 0 auto!important}.preview-viewport.preview-mobile .paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}
+</style>
+
+<style id="paris-mobile-vertical-strips">
+/* En App/Mobile, ambas franjas son verticales incluso en el simulador de escritorio. */
+@media screen and (max-width: 700px) {
+  .paris-seat-benefits {display:flex!important;flex-direction:column!important;grid-template-columns:1fr!important;padding:10px 14px!important;}
+  .paris-seat-benefit {display:flex!important;flex-direction:row!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;padding:13px 4px!important;}
+  .paris-seat-benefit+.paris-seat-benefit {border-left:0!important;border-top:1px solid #e2eaf2!important;}
+  .paris-seat-icon {flex-shrink:0!important;}
+  .paris-tech-strip {flex-direction:column!important;}
+  .paris-tech-item {width:100%!important;flex:0 0 auto!important;}
+  .paris-tech-separator {width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important;}
+}
+.preview-viewport.preview-mobile .paris-seat-benefits {display:flex!important;flex-direction:column!important;grid-template-columns:1fr!important;padding:10px 14px!important;}
+.preview-viewport.preview-mobile .paris-seat-benefit {display:flex!important;flex-direction:row!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;padding:13px 4px!important;}
+.preview-viewport.preview-mobile .paris-seat-benefit+.paris-seat-benefit {border-left:0!important;border-top:1px solid #e2eaf2!important;}
+.preview-viewport.preview-mobile .paris-seat-icon {flex-shrink:0!important;}
+.preview-viewport.preview-mobile .paris-tech-strip {flex-direction:column!important;}
+</style>
+<style id="paris-seat-desktop-preview-fix">
+.preview-viewport.preview-desktop .paris-seat-benefits{display:grid!important;grid-template-columns:repeat(var(--seat-count,5),minmax(0,1fr))!important;gap:0!important}
+.preview-viewport.preview-desktop .paris-seat-benefit{display:flex!important;flex-direction:row!important;width:auto!important;min-width:0!important;padding:8px 9px!important;border-top:0!important}
+.preview-viewport.preview-desktop .paris-seat-benefit+.paris-seat-benefit{border-left:1px solid #e2eaf2!important;border-top:0!important}
+.preview-viewport.preview-desktop .paris-seat-icon{flex:0 0 54px!important;width:54px!important;height:54px!important}
+.preview-viewport.preview-desktop .paris-seat-copy{padding-left:9px!important}
+.preview-viewport.preview-desktop .paris-seat-title{font-size:13px!important}
+.preview-viewport.preview-desktop .paris-seat-detail{font-size:12px!important}
+</style>
+<style id="paris-suggestions-ux">
+.seat-manager{margin-top:10px;border:1px solid #d7e5f2;border-radius:9px;background:#f8fbff;padding:10px}.seat-manager summary{cursor:pointer;font-weight:700;font-size:12px;color:#153c60}.seat-manager-items{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}.seat-manager-line{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e3ebf2;border-radius:8px;padding:7px;cursor:default}.seat-manager-line>input{width:17px;height:17px;flex:none}.seat-manager-line img{object-fit:contain;flex:none}.seat-manager-field{display:flex;flex:1;flex-direction:column;gap:4px;min-width:0;font-size:12px}.seat-manager-field input{width:100%;box-sizing:border-box;padding:7px;border:1px solid #d5e0eb;border-radius:5px;font-size:12px}.seat-manager-footer{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:10px}.seat-manager-footer small{color:#667085}.seat-manager-footer button{padding:8px 12px;border-radius:6px}.suggestion-section-body{scroll-margin-top:16px}
+</style>
+<style>
+.export-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:#537b96;color:#fff;font-size:11px;font-weight:800;vertical-align:middle}
+.quality-panel{margin:20px!important;padding:18px 20px!important}.quality-details{margin-top:10px}.quality-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0 8px}.quality-filter-actions{display:flex;flex-wrap:wrap;gap:6px}.quality-filter-btn{margin:0!important;padding:6px 11px!important;background:#fff!important;color:#344054!important;border:1px solid #dbe3ed!important;border-radius:999px!important;box-shadow:none!important;font-size:11.5px!important;font-weight:700!important}.quality-filter-btn.active{background:#173f5f!important;color:white!important;border-color:#173f5f!important}.quality-filter-bar input{width:200px;max-width:100%;border:1px solid #dbe3ed;border-radius:6px;padding:7px 10px;font-size:12px}.quality-grid{display:flex!important;flex-direction:column!important;gap:0!important;margin-top:6px!important}.quality-sku{padding:7px 10px!important;border-radius:5px!important;margin-top:3px!important}.quality-sku-top{display:flex;align-items:center;gap:12px!important}.quality-sku-top strong{font-size:11.5px;min-width:130px}.quality-reasons-inline{flex:1;color:#667085;font-size:11px;overflow-wrap:anywhere}.quality-review-btn{margin:0!important;padding:4px 9px!important;background:transparent!important;border:0!important;color:#173f5f!important;box-shadow:none!important;font-size:11px!important}.quality-footer{font-size:10.5px;color:#667085;margin-top:9px}.quality-empty{padding:15px;color:#667085;font-size:12px}@media(max-width:650px){.quality-sku-top{flex-wrap:wrap}.quality-sku-top strong{min-width:0}.quality-reasons-inline{flex-basis:100%}.quality-filter-bar input{width:100%}}
+</style>
+<style id="paris-guide-style">
+.paris-guide{border:1px solid #e0e7ef;border-radius:12px;margin:0 0 13px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(18,47,77,.045)}
+.paris-guide summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:13px 17px;font-size:14px;font-weight:750;color:#153d5d;background:#f5f9fc}
+.paris-guide summary::-webkit-details-marker{display:none}.paris-guide summary:after{content:'⌄';font-size:18px;transition:transform .15s}.paris-guide:not([open]) summary:after{transform:rotate(-90deg)}
+.paris-guide-hint{margin-left:auto;font-size:11px;color:#66798b;font-weight:500}.paris-guide-body{padding:8px 18px 13px}.paris-guide-body ul{margin:6px 0 0;padding-left:24px;line-height:1.8!important;color:#25364a}.paris-guide-body li{padding:4px 0}.paris-guide-body li::marker{color:#517994}.paris-guide-rules{border-left:4px solid #f5c518;background:#fffdf5}.paris-guide-rules summary{background:#fff8df;color:#4d401b}.paris-guide-rules .paris-guide-body{background:#fffdf5}.paris-guide-rules .paris-guide-body li::marker{color:#c49b00}
+@media(max-width:650px){.paris-guide summary{padding:12px}.paris-guide-body{padding:7px 12px 12px}.paris-guide-hint{font-size:10px}}
+</style>
+<style id="paris-layout-css">
+.paris-layout-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 2px;font-size:12px;font-weight:700;color:#344054}
+.paris-layout-btn{padding:7px 12px!important;margin:0!important;border-radius:6px!important;background:#eef2f6!important;color:#344054!important;border:1px solid #d7dee7!important;box-shadow:none!important;font-size:12px!important}
+.paris-layout-btn.active{background:#173f5f!important;color:#fff!important;border-color:#173f5f!important}
+#tablesContainer .easy-ficha-wrapper{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;align-items:start!important}
+#tablesContainer .easy-ficha-wrapper[data-paris-layout="1"]{grid-template-columns:minmax(0,1fr)!important}
+#tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#tablesContainer .easy-ficha-wrapper>.paris-ficha-card{min-width:0!important;width:auto!important;max-width:100%!important;box-sizing:border-box!important;overflow-wrap:anywhere!important}
+#tablesContainer .easy-ficha-wrapper>.row-divider{display:none!important}
+@media(max-width:1100px){#tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:720px){#tablesContainer .easy-ficha-wrapper,#tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{grid-template-columns:minmax(0,1fr)!important}}
+.preview-viewport.preview-mobile #tablesContainer .easy-ficha-wrapper,.preview-viewport.preview-mobile #tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
 </style>
 </head>
 <body>
 <div class="header" style="background:#000273;"><img src="https://cl-paris-media-hub.ecomm.cencosud.com/files/logos_paris/logos_web/Header_Brand_125_60x60.svg?v=1" alt="Paris" style="max-height:40px;height:auto;width:auto;display:block;"/><span>Creador de Descripciones Largas</span></div>
 <div class="card">
-<h2>📜 Instrucciones</h2>
+<details class="paris-guide paris-guide-instructions" open><summary>📜 Instrucciones <span class="paris-guide-hint">Mostrar / ocultar</span></summary><div class="paris-guide-body">
 <ul style="line-height:1.7;">
 <li>👨‍💻 <strong>Descargar Plantilla:</strong> Usa el botón para descargar un Excel preformateado.</li>
 <li>📁 <strong>Procesar Excel:</strong> Completa los campos requeridos.</li>
@@ -893,18 +943,18 @@ img { max-width: 100%; height: auto; }
 <li>👁️ <strong>Previsualizar:</strong> Visualizar Tablas muestra resultados.</li>
 <li>⬇️ <strong>Exportar:</strong> Exportar HTML a Excel descarga resultados.</li>
 </ul>
-<div style="background: #fff9e6; border-left: 6px solid #f5c518; border-top-left-radius: 12px; border-bottom-left-radius: 12px; padding: 20px; margin-bottom: 30px;">
-  <h3 style="display:block !important;margin-top:10px !important;margin-right:0 !important;margin-bottom:0 !important;margin-left:0 !important;padding-top:0 !important;padding-right:0 !important;padding-bottom:0 !important;padding-left:0 !important;height:auto !important;min-height:0 !important;line-height:1.2 !important;font-size:14px !important;font-weight:700 !important;">📌 <strong>Directrices</strong></h3><ul style="line-height:1.7; color: #000; margin: 0;"><li><strong>Descripción corta:</strong> Máximo 160 caracteres.</li>
+</div></details><details class="paris-guide paris-guide-rules" open><summary>📌 Directrices <span class="paris-guide-hint">Mostrar / ocultar</span></summary><div class="paris-guide-body">
+  <ul style="line-height:1.7; color: #000; margin: 0;"><li><strong>Descripción corta:</strong> Máximo 160 caracteres.</li>
 <li><strong>Descripción larga:</strong> Este campo se convierte en texto HTML. Usa palabras *entre asteriscos* para poner en negrita, y ## antes de títulos para destacarlos.</li>
-<li><strong>Descripción de la Marca:</strong> Usa el archivo "Descripciones Marcas y urls" desde SharePoint.</li>
+<li><strong>Descripción de la Marca:</strong> Usa el archivo "Descripciones Marcas y urls" desde SharePoint. &gt;&gt; <a href="https://cnco.sharepoint.com/:x:/r/sites/CatalogoEasycl/Documentos%20compartidos/Chile/3.%20Catalogaci%C3%B3n/Descripciones%20largas/Descripciones%20Marcas%20y%20urls.xlsx?d=w388a62d2a3ba416d8108e79351cfa95d&amp;csf=1&amp;web=1&amp;e=h4WVqm" target="_blank" rel="noopener noreferrer" style="color:#126a9a;font-weight:700;text-decoration:underline;">Ir al archivo ↗</a></li>
 <li><strong>Imagen de Marca:</strong> Agrega el nombre de la imagen más la extensión, Ej. logoBC.png (acepta .jpg, .jpeg, .png, .webp ✅). Debe estar alojada en Filezilla &gt; Carpeta Logos (Máx 60 px de alto)</li>
 <li><strong>Video YouTube:</strong> Se acepta tanto la URL corta como la larga para incrustar videos.</li>
 <li><strong>Descarga de documentos:</strong> Selecciona en el Excel el botón que se acomode a tu necesidad más la URL del archivo.</li>
 <li>En la plantilla descargada podrás ver las instrucciones en mayor detalle</li></ul>
-</div>
+</div></details>
 <button onclick="updateTables()">👁️ Visualizar Tablas</button>
 <button onclick="openSmartReview()">✨ Revisar sugerencias</button>
-<button id="btnExportSelected" onclick="exportHtmlToExcel('selected')">☑️ Exportar seleccionados (0)</button>
+<button onclick="exportHtmlToExcel('selected')">☑️ Exportar seleccionados <span id="exportSelectionBadge" class="export-count-badge">0</span></button>
 <button onclick="exportHtmlToExcel('all')">⬇️ Exportar todo</button>
 <button id="btnDescargarPlantilla" onclick="downloadTemplate()">📄 Descargar Plantilla</button> <span id="tplStatus" style="font-size:12px;color:#555;margin-left:8px;display:none;"></span>
 <button onclick="limpiarTodo()">🧹 Limpiar Todo</button>
@@ -919,6 +969,7 @@ img { max-width: 100%; height: auto; }
       <button type="button" id="previewMobileBtn" class="preview-mode-btn" onclick="setPreviewMode('mobile')">📱 Mobile</button>
     </div>
   </div>
+  <div class="paris-layout-controls" role="group" aria-label="Cantidad de fichas por fila"><span>Fichas por fila:</span><button type="button" id="parisLayout1" class="paris-layout-btn" onclick="setParisLayout(1)">▤ 1 por fila</button><button type="button" id="parisLayout2" class="paris-layout-btn active" onclick="setParisLayout(2)">▦ 2 por fila</button><button type="button" id="parisLayout3" class="paris-layout-btn" onclick="setParisLayout(3)">▦ 3 por fila</button></div>
   <div id="previewViewport" class="preview-viewport preview-desktop"><div id="tablesContainer"><p>📂 Sin datos cargados.</p></div></div>
 </div>
 <div class="ai-panel" id="claimsPanel">
@@ -942,7 +993,6 @@ const defaultImagenes = {
 
 let excelRows = [];
 const exportSelection = new Set();
-const qualityUI = {filter:'attention', search:'', page:1, pageSize:25, expanded:new Set()};
 
 function toggleExportSelection(index, checked){
   if (checked) exportSelection.add(Number(index));
@@ -951,11 +1001,10 @@ function toggleExportSelection(index, checked){
 }
 
 function updateExportSelectionCount(){
-  const total=exportSelection.size;
   const el=document.getElementById('exportSelectionCount');
-  if(el) el.textContent=total + ' ficha' + (total===1?'':'s') + ' seleccionada' + (total===1?'':'s');
-  const btn=document.getElementById('btnExportSelected');
-  if(btn) btn.textContent='☑️ Exportar seleccionados (' + total + ')';
+  if(el) el.textContent=exportSelection.size + ' ficha' + (exportSelection.size===1?'':'s') + ' seleccionada' + (exportSelection.size===1?'':'s');
+  const badge=document.getElementById('exportSelectionBadge');
+  if(badge) badge.textContent=String(exportSelection.size);
 }
 
 
@@ -963,18 +1012,21 @@ function importExcel() {
   const file = document.getElementById('importFile').files[0];
   if (!file) return alert('Por favor selecciona un archivo Excel.');
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     const data = new Uint8Array(e.target.result);
     const workbook = XLSX.read(data, {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     excelRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+    exportSelection.clear(); updateExportSelectionCount();
     if (!excelRows.length) return alert('❌ No se encontraron filas en el Excel.');
+
     parisSuggestionBaselines.clear();
     excelRows.forEach((r,i)=>parisSuggestionBaselines.set(i,JSON.parse(JSON.stringify(r))));
     detectClaims();
     detectSmartSuggestions();
     renderQualityPanel();
-    alert('📁 Excel cargado correctamente. Puedes visualizar las tablas.');
+
+    alert('📁 Excel cargado correctamente.');
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1005,21 +1057,17 @@ function buildArchivoDescargableUrl(valor) {
 
 function buildManualesChip(botonTexto, urls) {
   const label = String(botonTexto || '').trim();
-  const validUrls = (urls || [])
-    .map(u => buildArchivoDescargableUrl(u))
-    .filter(Boolean)
-    .slice(0, 3);
+  const validUrls = (urls || []).map(u => buildArchivoDescargableUrl(u)).filter(Boolean);
 
   if (!label || !validUrls.length) return '';
 
-  // Cualquier documento identificado como manual utiliza el desplegable
-  // "Manuales del producto" y permite visualizar hasta 3 archivos.
-  const esManual = /manual/i.test(label);
+  // Solo Manual de Armado utiliza chip desplegable.
+  const esManualArmado = /manual\s+de\s+armado/i.test(label);
 
-  if (!esManual) {
+  if (!esManualArmado) {
     const url = validUrls[0];
     return `
-      <div style='margin:12px 0 0 0;'>
+      <div style='margin:12px 0 8px 0;'>
         <a class='chip-documento chip-marca chip-enlace-marca'
            href='${url}' target='_blank'
            style='display:inline-block;width:auto;min-width:220px;max-width:100%;box-sizing:border-box;padding:10px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-decoration:none;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);font-size:14px;font-weight:400;line-height:1.2;'>
@@ -1028,14 +1076,12 @@ function buildManualesChip(botonTexto, urls) {
       </div>`;
   }
 
-  const total = validUrls.length;
-  const items = validUrls.map((url, idx) => {
-    const itemLabel = total === 1 ? label : `${label} ${idx + 1}`;
-    return `<a href='${url}' target='_blank' style='display:block;padding:9px 12px;color:#2c3e50;text-decoration:none;font-size:13px;line-height:1.2;${idx > 0 ? "border-top:1px solid #e5e7eb;" : ""}'>${itemLabel}</a>`;
-  }).join('');
+  const items = validUrls.map((url, idx) =>
+    `<a href='${url}' target='_blank' style='display:block;padding:9px 12px;color:#2c3e50;text-decoration:none;font-size:13px;line-height:1.2;${idx > 0 ? "border-top:1px solid #e5e7eb;" : ""}'>Manual de Armado ${idx + 1}</a>`
+  ).join('');
 
   return `
-    <details style='display:inline-block;margin:12px 0 0 0;position:relative;'>
+    <details style='display:inline-block;margin:12px 0 8px 0;position:relative;'>
       <summary style='list-style:none;cursor:pointer;display:inline-block;min-width:220px;max-width:100%;box-sizing:border-box;padding:8px 16px;border:1px solid #cbd8e6;border-radius:14px;background:#fff;color:#2c3e50;text-align:center;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.08);'>
         <span style='display:block;font-size:14px;font-weight:700;line-height:1.15;margin:0 0 3px 0;'>🔧 Manuales del producto</span>
         <span style='display:block;font-size:13px;font-weight:400;line-height:1.15;margin:0;'>Ver documentos <span style='font-size:11px;margin-left:4px;'>▼</span></span>
@@ -1149,7 +1195,91 @@ function parisTechnicalIcon(type){
     <span style="display:block !important;position:absolute !important;left:15px !important;top:5px !important;width:14px !important;height:12px !important;border:3px solid ${blue} !important;border-bottom:0 !important;border-radius:9px 9px 0 0 !important;box-sizing:border-box !important;background:transparent !important;">&#8203;</span>
   </span>`;
 }
-function buildParisTechnicalStrip(row,rowIndex=null,showControls=false,compactTop=false){
+function parisSeatUsageFromRow(row){
+  const fields=Object.entries(row||{}).filter(([key,value])=>value!=null && /descrip|html|uso|detalle|caracter/i.test(key));
+  const raw=fields.map(([key,value])=>String(value)).join('\n')
+    .replace(/<br\s*\/?\s*>/gi,'\n').replace(/<\/\s*(?:li|p|div|tr)>/gi,'\n')
+    .replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ')
+    .replace(/&bull;|&#8226;/gi,'•');
+  const normalized=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const labels=[/\buso\s+por\s+norma\s*:\s*/ig,/\buso\s+recomendado\s*:\s*/ig];
+  for(const pattern of labels){
+    for(const m of normalized.matchAll(pattern)){
+      const after=normalized.slice(m.index+m[0].length);
+      const first=after.split(/\||\n|[.;]|\s+desde\b|\s+por\s+el\s+mayor\s+tiempo\b|\s+hasta\s+\d|\s*\[\s*\d/i)[0].trim().replace(/^[•\s:–-]+|[•\s:–-]+$/g,'');
+      if(/^(?:a\s+)?contra\s*[- ]?marcha\b/i.test(first)) return 'Contramarcha';
+      if(/^a\s+favor\s+de\s+(?:la\s+)?marcha\b/i.test(first)) return 'A favor de la marcha';
+      if(/^(?:alzador|booster|butaca(?:\s+con\s+cinturon)?)/i.test(first)) return 'Alzador o butaca con cinturón';
+    }
+  }
+  // Frases de orientacion habituales sin etiqueta explicita de uso.
+  if(/\b(?:en\s+sentido\s+contrario\s+a\s+la\s+marcha|orientaci[oó]n\s+hacia\s+atr[aá]s|mirando\s+hacia\s+atr[aá]s|a\s+contramarcha|a\s+contra\s+marcha|viajen\s+a\s+contramarcha)\b/i.test(normalized)) return 'Contramarcha';
+  if(/\b(?:en\s+sentido\s+de\s+la\s+marcha|orientaci[oó]n\s+hacia\s+delante)\b/i.test(normalized)) return 'A favor de la marcha';
+  return '';
+}
+function buildParisSeatBenefits(row,rowIndex=null,showControls=false){
+  if(!row || (row.__parisSeatClaimApproved!==true && !parisSeatManualClaims(row).length)) return '';
+  const seatSource=row.__parisSeatSourceSnapshot?JSON.parse(row.__parisSeatSourceSnapshot):row;
+  const raw=Object.entries(seatSource||{}).filter(([k,v])=>v!=null&&/nombre|descrip|html|grupo|peso|reclin|giro|categor|tipo|uso|orientacion|sentido/i.test(k)).map(([k,v])=>String(v)).join(' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ');
+  const values=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');
+  if(!parisIsCarSeatProduct(row))return '';
+  const selected=[];
+  if(/(?:giro|rotacion|giratori[ao]|rotatori[ao])\s*(?:de\s*)?360\s*(?:°|grados)?|360\s*°?\s*(?:de\s*)?(?:giro|rotacion)/i.test(values))selected.push({title:'Giro 360°',detail:'Rotación completa',icon:'rotate'});
+  const recl=values.match(/\b(\d{1,2})\s*(?:posiciones?|niveles?)\s*(?:de\s*)?reclin(?:ado|acion|able)?|\breclin(?:ado|acion|able)?\s*(?:de|en|con)?\s*(\d{1,2})\s*(?:posiciones?|niveles?)|\breclin(?:acion|ado|able)\s*:\s*(?:si\s*[,;:]?\s*)?(\d{1,2})\s*(?:niveles?|posiciones?)/i);
+  if(recl)selected.push({title:'Reclinable',detail:`${recl[1]||recl[2]||recl[3]} posiciones de reclinado`,icon:'recline'});
+  else if(/\breclin(?:able|ado|ada|acion|ar|a)\b|\brespaldo\s+reclinad[oa]\b|\bposiciones?\s+de\s+reclinado\b/i.test(values))selected.push({title:'Reclinable',detail:'Respaldo ajustable',icon:'recline'});
+  let groups=[];
+  const groupPattern=/\bgrupos?\s*(?::|de\s+uso\s*:?)?\s*((?:0\s*\+?|[123]|\s|\/|,|y|-){1,32})/ig;
+  for(const m of values.matchAll(groupPattern)){const found=m[1].match(/0\s*\+|\b[123]\b/g)||[];groups.push(...found.map(x=>x.replace(/\s/g,'')));}
+  groups=[...new Set(groups)];
+  if(groups.length)selected.push({title:'Grupo',detail:groups.join(' / '),icon:'group'});
+  const weightMatch=values.match(/\b(?:peso\s+(?:recomendado|soportado|admitido|maximo)|capacidad\s+(?:maxima|de\s+uso)|soporta\s+hasta|apta?\s+(?:para\s+)?(?:ninos?\s+)?hasta)\s*(?:de|:|hasta|los)?\s*(\d{1,3}(?:[.,]\d+)?)\s*(?:kg|kilos?)\b/i);
+  if(weightMatch)selected.push({title:'Peso recomendado',detail:`Hasta ${weightMatch[1]} kg`,icon:'weight'});
+  else {const productWeight=values.match(/\bpeso\s*(?:del\s+producto)?\s*(?:\(\s*(?:kg|kilos?)\s*\))?\s*:\s*(\d{1,3}(?:[.,]\d+)?)\s*(?:(?:kg|kilos?)\b)?/i);if(productWeight)selected.push({title:'Peso del producto',detail:`${productWeight[1].replace('.',',')} kg`,icon:'weight'});}
+  // Priorizar el dato etiquetado: Uso por Norma > Uso Recomendado.
+  // Extraer solo la modalidad anterior al separador de peso, altura o explicacion.
+  const uso=parisSeatUsageFromRow(seatSource);
+  if(uso) selected.push({title:'Uso recomendado',detail:uso,icon:'usage'});
+  // Los claims manuales se integran en la misma franja, sin logos sueltos.
+  for(const claim of parisSeatManualClaims(row)){
+    const cfg=PARIS_SEAT_CLAIM_CONFIG[claim];
+    const detail=row.__parisSeatManualDetails&&Object.prototype.hasOwnProperty.call(row.__parisSeatManualDetails,cfg.title)?row.__parisSeatManualDetails[cfg.title]:cfg.detail;
+    const existing=selected.find(x=>x.title===cfg.title || (cfg.icon==='weight'&&x.icon==='weight'));
+    if(existing){
+      if(row.__parisSeatManualDetails&&Object.prototype.hasOwnProperty.call(row.__parisSeatManualDetails,cfg.title))existing.detail=detail;
+    }else selected.push({title:cfg.title,detail,icon:cfg.icon});
+  }
+  if(row.__parisSeatManaged){const managed=row.__parisSeatManaged;selected.splice(0,selected.length,...Object.keys(PARIS_SEAT_CLAIM_CONFIG).filter(k=>managed[PARIS_SEAT_CLAIM_CONFIG[k].title]&&managed[PARIS_SEAT_CLAIM_CONFIG[k].title].enabled).map(k=>({title:PARIS_SEAT_CLAIM_CONFIG[k].title,icon:PARIS_SEAT_CLAIM_CONFIG[k].icon,detail:managed[PARIS_SEAT_CLAIM_CONFIG[k].title].detail||''})));}
+  if(row.__parisSeatEdits){ for(const item of selected){if(Object.prototype.hasOwnProperty.call(row.__parisSeatEdits,item.title))item.detail=String(row.__parisSeatEdits[item.title]);} }
+  if(!selected.length)return '';
+  // Imagenes externas: mismo patron de URL que los claims (ej. Vegano).
+  // Publicar estos archivos PNG en la ruta indicada antes de utilizar en produccion.
+  const seatIconUrls={
+    rotate: "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_giro.png",
+    recline: "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_reclinable.png",
+    group: "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_grupo.png",
+    weight: "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_peso.png",
+    usage: "https://www.paris.cl/images/Contenido%20Fichas/Logos/icono_uso.png"
+  };
+  const seatIconHtml=(kind)=>`<img src="${seatIconUrls[kind]||''}" alt="" width="46" height="46" style="display:block!important;width:46px!important;height:46px!important;max-width:46px!important;object-fit:contain!important;border:0!important;"/>`;
+  const cards=selected.map(x=>`<div class="paris-seat-benefit"><span class="paris-seat-icon" aria-hidden="true" style="display:flex!important;align-items:center!important;justify-content:center!important;font-family:Arial,sans-serif!important;font-size:34px!important;font-weight:700!important;color:#102d4e!important;">${seatIconHtml(x.icon)}</span><div class="paris-seat-copy"><div class="paris-seat-title">${parisEsc(x.title)}</div><div class="paris-seat-detail">${parisEsc(x.detail)}</div>${showControls&&rowIndex!==null?`<button type="button" class="paris-seat-edit-btn" onclick="editParisSeatFeature(${Number(rowIndex)},${JSON.stringify(x.title).replace(/"/g,"&quot;")})" title="Editar esta característica">✎ Editar</button>`:""}</div></div>`).join('');
+  return `<style>.paris-seat-benefits{display:grid!important;grid-template-columns:repeat(${Math.min(selected.length,5)},minmax(0,1fr))!important;gap:0!important;background:#fff!important;color:#11233c!important;border:1px solid #dbe8f6!important;border-radius:14px!important;padding:20px 14px!important;margin:8px 0 14px!important;box-sizing:border-box!important}.paris-seat-benefit{display:flex!important;align-items:center!important;gap:12px!important;padding:8px 14px!important;min-width:0!important}.paris-seat-benefit+.paris-seat-benefit{border-left:1px solid #e2eaf2!important}.paris-seat-icon{width:64px!important;height:64px!important;flex:0 0 64px!important;border-radius:50%!important;background:#e0f0ff!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#102d4e!important}.paris-seat-fallback{display:none!important;font-size:22px!important;font-weight:700!important}.paris-seat-copy{min-width:0!important;border-left:1px solid #d6e2ee!important;padding-left:14px!important;align-self:stretch!important;display:flex!important;flex-direction:column!important;justify-content:center!important}.paris-seat-title{font-size:15px!important;font-weight:700!important;color:#11233c!important;margin:0 0 4px!important}.paris-seat-edit-btn{background:#f5f9ff;border:1px solid #c9ddef;border-radius:6px;color:#174b75;cursor:pointer;font-size:11px;padding:3px 7px;margin-top:5px;align-self:flex-start}.paris-seat-detail{font-size:13px!important;line-height:1.4!important;color:#63738b!important;overflow-wrap:anywhere!important}@media screen and (max-width:700px){.paris-seat-benefits{grid-template-columns:1fr!important;padding:10px 14px!important}.paris-seat-benefit{padding:12px 0!important}.paris-seat-benefit+.paris-seat-benefit{border-left:0!important;border-top:1px solid #e2eaf2!important}.paris-seat-icon{width:54px!important;height:54px!important;flex-basis:54px!important}}</style><div class="paris-seat-benefits" style="--seat-count:${Math.min(selected.length,5)}">${cards}</div>`;
+}
+function editParisSeatFeature(rowIndex,title){
+  const row=excelRows[Number(rowIndex)]; if(!row)return;
+  const current=row.__parisSeatEdits&&Object.prototype.hasOwnProperty.call(row.__parisSeatEdits,title)?row.__parisSeatEdits[title]:null;
+  const strip=buildParisSeatBenefits(row);
+  const rx=new RegExp('paris-seat-title[^>]*>'+title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'<\\/div>\\s*<div class="paris-seat-detail">([^<]*)');
+  const found=strip.match(rx);
+  const initial=current!==null?current:(found?found[1].replace(/&amp;/g,'&'):'');
+  const edited=window.prompt('Editar '+title+':',initial);if(edited===null)return;
+  // Se permite dejar el texto vacío para completarlo después.
+  if(!row.__parisSeatEdits)row.__parisSeatEdits={};
+  row.__parisSeatEdits[title]=edited.trim();
+  if(row.__parisSeatManualDetails&&Object.prototype.hasOwnProperty.call(row.__parisSeatManualDetails,title))row.__parisSeatManualDetails[title]=edited.trim();
+  updateTables();
+}
+function buildParisTechnicalStrip(row,rowIndex=null,showControls=false){
   const dimensions=parisCleanValue(get(row,['Dimensiones']));
   const material=parisCleanValue(get(row,['Material','Composición Material','Composicion Material']));
   const w=parisWeightInfo(row);
@@ -1162,9 +1292,9 @@ function buildParisTechnicalStrip(row,rowIndex=null,showControls=false,compactTo
   items.forEach((it,idx)=>{
     if(idx) parts.push(`<span class='paris-tech-separator' aria-hidden="true">&#8203;</span>`);
     const controls=(showControls&&rowIndex!==null)?`<div class='paris-tech-actions' style='display:flex !important;gap:4px !important;justify-content:center !important;margin-top:3px !important;'><button type='button' onclick="editParisTechnical(${Number(rowIndex)},'${it.type}')" title='Editar ${it.label}' aria-label='Editar ${it.label}' style='display:inline-flex !important;align-items:center !important;justify-content:center !important;width:24px !important;height:24px !important;padding:0 !important;border:1px solid #d0d5dd !important;border-radius:6px !important;background:#fff !important;color:#667085 !important;font-size:12px !important;line-height:1 !important;cursor:pointer !important;'>✎</button><button type='button' onclick="deleteParisTechnical(${Number(rowIndex)},'${it.type}')" title='Eliminar ${it.label}' aria-label='Eliminar ${it.label}' style='display:inline-flex !important;align-items:center !important;justify-content:center !important;width:24px !important;height:24px !important;padding:0 !important;border:1px solid #f2c7c3 !important;border-radius:6px !important;background:#fff !important;color:#b42318 !important;font-size:14px !important;line-height:1 !important;cursor:pointer !important;'>×</button></div>`:'';
-    parts.push(`<div class='paris-tech-item'>${parisTechnicalIcon(it.type)}<div class='paris-tech-copy' style='display:block !important;min-width:0 !important;color:#102a43 !important;line-height:1.25 !important;'><div class='paris-tech-label' style='display:block !important;font-weight:600 !important;font-size:11px !important;letter-spacing:.5px !important;text-transform:uppercase !important;margin:2px 0 4px 0 !important;color:#6b7280 !important;'>${parisEsc(it.label)}</div><div class='paris-tech-value' style='display:block !important;font-size:14px !important;font-weight:600 !important;color:#102a43 !important;overflow-wrap:anywhere !important;'>${parisEsc(it.value)}</div>${controls}</div></div>`);
+    parts.push(`<div class='paris-tech-item' style='display:flex !important;flex:1 1 0 !important;flex-direction:column !important;align-items:center !important;justify-content:center !important;text-align:center !important;gap:6px !important;padding:16px 18px !important;min-width:0 !important;box-sizing:border-box !important;'>${parisTechnicalIcon(it.type)}<div class='paris-tech-copy' style='display:block !important;min-width:0 !important;color:#102a43 !important;line-height:1.25 !important;'><div class='paris-tech-label' style='display:block !important;font-weight:600 !important;font-size:11px !important;letter-spacing:.5px !important;text-transform:uppercase !important;margin:2px 0 4px 0 !important;color:#6b7280 !important;'>${parisEsc(it.label)}</div><div class='paris-tech-value' style='display:block !important;font-size:14px !important;font-weight:600 !important;color:#102a43 !important;overflow-wrap:anywhere !important;'>${parisEsc(it.value)}</div>${controls}</div></div>`);
   });
-  return `<style>.paris-tech-strip{display:flex!important;flex-direction:row!important;align-items:stretch!important;width:100%!important;max-width:100%!important}.paris-tech-strip .paris-tech-item{display:flex!important;flex:1 1 0!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;gap:6px!important;padding:16px 18px!important;min-width:0!important;box-sizing:border-box!important}.paris-tech-strip .paris-tech-separator{display:block!important;width:1px!important;min-width:1px!important;height:auto!important;min-height:72px!important;align-self:stretch!important;background:#d9e1e8!important;flex:0 0 1px!important;margin:10px 0!important}@media(max-width:1200px),(max-device-width:900px){.paris-tech-strip{flex-direction:column!important}.paris-tech-strip .paris-tech-item{width:100%!important;flex:0 0 auto!important;padding:14px 16px!important}.paris-tech-strip .paris-tech-copy,.paris-tech-strip .paris-tech-label,.paris-tech-strip .paris-tech-value{width:100%!important;text-align:center!important}.paris-tech-strip .paris-tech-separator{width:calc(100% - 32px)!important;min-width:0!important;height:1px!important;min-height:1px!important;flex:0 0 1px!important;margin:0 16px!important;align-self:center!important}}</style><div class='paris-tech-strip' style='display:flex;align-items:stretch;width:100%;max-width:100%;margin:${compactTop ? '-8px' : '-14px'} 0 14px 0 !important;background:#ffffff;border:1px solid #eceff2;border-radius:14px;overflow:hidden;box-sizing:border-box;'>${parts.join('')}</div>`;
+  return `<div class='paris-tech-strip' style='display:flex !important;align-items:stretch !important;width:100% !important;max-width:100% !important;margin:18px 0 14px 0 !important;background:#ffffff !important;border:1px solid #eceff2 !important;border-radius:14px !important;overflow:hidden !important;box-sizing:border-box !important;'>${parts.join('')}</div>`;
 }
 function editParisTechnical(rowIndex,type){
   rowIndex=Number(rowIndex); const row=excelRows[rowIndex]; if(!row)return;
@@ -1186,7 +1316,7 @@ function deleteParisTechnical(rowIndex,type){
   smartSuggestions.forEach(s=>{if(s.rowIndex===rowIndex&&s.status==='Aplicado'&&((type==='dimensions'&&s.type==='dimensions')||(type==='material'&&s.type==='material')||(type==='weight'&&s.type==='weight')))s.status='Sugerencia';});
   renderGroupedSuggestions(); updateTables();
 }
-function parisSuggestionTypeLabel(type){return ({claim:'Claim',unmapped:'Característica',care:'Cuidado de Uso',dimensions:'Dimensiones',material:'Material',weight:'Peso',technology:'Tecnología',youtube:'Video YouTube'})[type]||'Sugerencia';}
+function parisSuggestionTypeLabel(type){return ({claim:'Claim',unmapped:'Característica',care:'Cuidado de Uso',dimensions:'Dimensiones',material:'Material',weight:'Peso',technology:'Tecnología'})[type]||'Sugerencia';}
 function toggleParisSuggestionForm(rowIndex){
   const form=document.getElementById('parisManualSuggestionForm_'+Number(rowIndex));
   if(!form) return;
@@ -1204,13 +1334,12 @@ function updateParisManualSuggestionInput(rowIndex){
   const input=form.querySelector('input');
   if(!input)return;
   const isClaim=select&&select.value==='claim';
-  const isYoutube=select&&select.value==='youtube';
   if(isClaim){
     input.setAttribute('list','parisClaimOptions_'+Number(rowIndex));
     input.placeholder='Selecciona o escribe un Claim';
   }else{
     input.removeAttribute('list');
-    input.placeholder=isYoutube?'Pega un link de YouTube':'Escribe la sugerencia';
+    input.placeholder=select&&select.value==='youtube'?'Pega el enlace de YouTube':'Escribe la sugerencia';
   }
 }
 function addParisSuggestion(rowIndex){
@@ -1224,8 +1353,16 @@ function addParisSuggestion(rowIndex){
   if(!value)return alert('Escribe el contenido de la sugerencia.');
   const sku=get(row,['SKU']);
   if(!parisSuggestionBaselines.has(rowIndex)) parisSuggestionBaselines.set(rowIndex,JSON.parse(JSON.stringify(row)));
+  if(t==='youtube'){
+    const embed=cleanYoutubeUrl(value);
+    if(!/^https:\/\/www\.youtube\.com\/embed\/[A-Za-z0-9_-]{11}$/.test(embed))return alert('Ingresa una URL válida de YouTube (youtube.com/watch?v=... o youtu.be/...).');
+    row['VideoYouTube']=value;
+    if(input)input.value='';
+    form.style.display='none';
+    renderGroupedSuggestions();updateTables();return;
+  }
   if(t==='claim'){
-    const claim=ICONO_OPTIONS.find(x=>x.toLowerCase()===value.toLowerCase());
+    const claim=parisClaimOptionsForRow(row).find(x=>x.toLowerCase()===value.toLowerCase());
     if(!claim)return alert('Selecciona un Claim válido de la lista.');
     const existing=getExistingIcons(row);
     if(existing.some(x=>x.toLowerCase()===claim.toLowerCase()))return alert('Ese Claim ya está agregado en esta ficha.');
@@ -1234,9 +1371,9 @@ function addParisSuggestion(rowIndex){
     const field=firstEmptyIconField(row);
     if(!field)return alert('⚠️ El SKU '+sku+' ya tiene ocupados Icono 1–6.');
     row[field]=claim;
+    parisActivateSeatClaim(row,claim);
     claimSuggestions.push({rowIndex,sku,label:claim,source:'Manual',matched:claim,excerpt:'Agregado manualmente',status:'Aplicado',already:false,appliedField:field,manual:true});
   }else{
-    if(t==='youtube' && !cleanYoutubeUrl(value)) return alert('Ingresa una URL válida de YouTube (youtube.com, youtu.be, Shorts o Live).');
     const duplicate=smartSuggestions.some(s=>s.rowIndex===rowIndex&&s.type===t&&parisCleanValue(s.normalized||s.value).toLowerCase()===value.toLowerCase()&&s.status!=='Ignorado');
     if(duplicate)return alert('Esa sugerencia ya existe para esta ficha.');
     const sug={type:t,rowIndex,sku,title:parisSuggestionTypeLabel(t),value,normalized:value,source:'Manual',status:'Aplicado',manual:true};
@@ -1244,7 +1381,6 @@ function addParisSuggestion(rowIndex){
     else if(t==='care'){const arr=getCuidadosUso(row);if(!arr.includes(value))arr.push(value);setCuidadosUso(row,arr);}
     else if(t==='dimensions')row['Dimensiones']=value;
     else if(t==='material')row['Material']=value;
-    else if(t==='youtube'){row['VideoYouTube']=value;row['Video YouTube']=value;row['YouTube']=value;}
     else {row['Peso']=value;sug.targetKey='Peso';}
     smartSuggestions.push(sug);
   }
@@ -1261,10 +1397,6 @@ function editParisSuggestion(i){
   if(s.status==='Aplicado'&&row){
     if(s.type==='unmapped'){let arr=getNotasProducto(row).filter(x=>parisCleanValue(x)!==old);arr.push(value);setNotasProducto(row,arr);}
     else if(s.type==='care'){let arr=getCuidadosUso(row).filter(x=>parisCleanValue(x)!==old);arr.push(value);setCuidadosUso(row,arr);}
-    else if(s.type==='youtube'){
-      if(!cleanYoutubeUrl(value)){s.value=old;s.normalized=old;return alert('Ingresa una URL válida de YouTube (youtube.com, youtu.be, Shorts o Live).');}
-      row['VideoYouTube']=value;row['Video YouTube']=value;row['YouTube']=value;
-    }
   }
   renderGroupedSuggestions(); updateTables();
 }
@@ -1277,7 +1409,7 @@ function editParisClaimSuggestion(i){
   if(claimSuggestions.some((x,idx)=>idx!==i&&x.rowIndex===s.rowIndex&&String(x.label||'').toLowerCase()===claim.toLowerCase()&&x.status!=='Ignorado')) return alert('Ese Claim ya existe para esta ficha.');
   const field=s.appliedField || Object.keys(row).find(k=>/^Icono [1-6]$/.test(k)&&String(row[k]||'').toLowerCase()===String(s.label||'').toLowerCase()) || firstEmptyIconField(row);
   if(!field)return alert('⚠️ No hay espacio disponible en Icono 1–6.');
-  row[field]=claim; s.label=claim; s.matched=claim; s.appliedField=field; s.status='Aplicado'; s.manual=true;
+  row[field]=claim; parisSyncSeatManualClaims(row); parisActivateSeatClaim(row,claim); s.label=claim; s.matched=claim; s.appliedField=field; s.status='Aplicado'; s.manual=true;
   renderGroupedSuggestions(); updateTables();
 }
 function deleteParisClaimSuggestion(i){
@@ -1298,7 +1430,6 @@ function deleteParisSuggestion(i){
     else if(s.type==='dimensions')row['Dimensiones']='';
     else if(s.type==='material')row['Material']='';
     else if(s.type==='weight')row[s.targetKey||'Peso']='';
-    else if(s.type==='youtube'){row['VideoYouTube']='';row['Video YouTube']='';row['YouTube']='';}
   }
   smartSuggestions.splice(i,1); renderGroupedSuggestions(); updateTables();
 }
@@ -1312,8 +1443,11 @@ function buildParisManualControls(rowIndex){
   const smartEntries=smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.rowIndex===Number(rowIndex)&&x.s.manual&&x.s.status==='Aplicado'&&!['dimensions','material','weight'].includes(x.s.type));
   const claimEntries=claimSuggestions.map((s,i)=>({kind:'claim',s,i})).filter(x=>x.s.rowIndex===Number(rowIndex)&&x.s.manual&&x.s.status==='Aplicado');
   const entries=[...claimEntries,...smartEntries];
-  if(!entries.length)return '';
-  return `<div class='paris-inline-tools'>${entries.map(({kind,s,i})=>{
+  const row=excelRows[Number(rowIndex)];
+  const yt=row?String(get(row,['VideoYouTube','Video YouTube','YouTube'])||'').trim():'';
+  if(!entries.length&&!yt)return '';
+  const videoControl=yt?`<span class='paris-manual-pill'><span>Video YouTube: ${parisEsc(yt)}</span><button type='button' class='paris-inline-btn' onclick='editParisYoutube(${Number(rowIndex)})'>✎</button><button type='button' class='paris-inline-btn paris-delete-btn' onclick='deleteParisYoutube(${Number(rowIndex)})' style='color:#b42318!important;'>×</button></span>`:'';
+  return `<div class='paris-inline-tools'>${videoControl}${entries.map(({kind,s,i})=>{
     const label=kind==='claim'?'Claim':parisSuggestionTypeLabel(s.type);
     const value=kind==='claim'?s.label:(s.normalized||s.value);
     const edit=kind==='claim'?`editParisClaimSuggestion(${i})`:`editParisSuggestion(${i})`;
@@ -1321,6 +1455,178 @@ function buildParisManualControls(rowIndex){
     return `<span class='paris-manual-pill'><span>${parisEsc(label)}: ${parisEsc(value)}</span><button type='button' class='paris-inline-btn' onclick='${edit}'>✎</button><button type='button' class='paris-inline-btn paris-delete-btn' onclick='${del}' style='color:#b42318!important;border-color:#f2c7c3!important;'>×</button></span>`;
   }).join('')}</div>`;
 }
+function editParisYoutube(rowIndex){
+ const row=excelRows[Number(rowIndex)];if(!row)return;
+ const current=String(get(row,['VideoYouTube','Video YouTube','YouTube'])||'');
+ const value=window.prompt('Editar enlace YouTube:',current);if(value===null)return;
+ if(!value.trim())return alert('Para quitar el video usa el botón ×.');
+ if(!/^https:\/\/www\.youtube\.com\/embed\/[A-Za-z0-9_-]{11}$/.test(cleanYoutubeUrl(value.trim())))return alert('Enlace YouTube no válido.');
+ row['VideoYouTube']=value.trim();updateTables();
+}
+function deleteParisYoutube(rowIndex){
+ const row=excelRows[Number(rowIndex)];if(!row)return;
+ ['VideoYouTube','Video YouTube','YouTube'].forEach(k=>{if(k in row)row[k]='';});
+ updateTables();
+}
+
+// Administrador de imágenes diferenciadoras: origen Excel y nuevas imágenes.
+const parisDifEdits = {};
+const PARIS_DIF_BASE = 'https://www.paris.cl/images/Contenido%20Fichas/Diferenciadores/';
+function parisDifName(raw){
+ const v=String(raw||'').trim();
+ if(!v)return '';
+ const name=v.split(/[\\/]/).pop().split(/[?#]/)[0];
+ return name;
+}
+function parisDifValid(name){return /^Dif_[A-Za-z0-9_-]+\.webp$/i.test(name);}
+function parisDifList(idx){
+ const row=excelRows[idx];if(!row)return [];
+ if(!parisDifEdits[idx]){
+  const fields=['Imagen diferenciadora 1','Imagen diferenciadora 2','Imagen diferenciadora 3'];
+  const list=[];
+  fields.forEach((field,n)=>{
+   const raw=get(row,[field,field+' ']);
+   if(!raw)return;
+   const name=parisDifName(raw);
+   // Conservar la URL del Excel si ya existe; nunca reescribirla al mover.
+   const url=buildDifUrl(raw);
+   if(url&&!list.some(x=>x.url===url))list.push({id:'excel_'+n,name,url,place:'default',size:'100%',align:'center',origin:'Excel'});
+  });
+  parisDifEdits[idx]=list;
+ }
+ return parisDifEdits[idx];
+}
+function parisDifAdd(idx){
+ const el=document.getElementById('parisDifNew_'+idx);if(!el)return;
+ const name=el.value.trim();
+ if(!parisDifValid(name))return alert('Utiliza el formato Dif_123456999_1.webp. Solo se acepta .webp. El archivo debe estar en FileZilla > Diferenciadores.');
+ const items=parisDifList(idx),url=PARIS_DIF_BASE+encodeURIComponent(name);
+ if(items.some(x=>x.url.toLowerCase()===url.toLowerCase()))return alert('Esta imagen ya está incluida en la ficha.');
+ items.push({id:'manual_'+Date.now(),name,url,place:'default',size:'100%',align:'center',origin:'Manual'});
+ updateTables();
+}
+function parisDifChange(idx,id,key,value){
+ const items=parisDifList(idx),i=items.findIndex(x=>x.id===id);if(i<0)return;
+ items[i][key]=value;
+ if(key==='place'){
+  if(items[i].groupCount>1)items.slice(i,i+items[i].groupCount).forEach(x=>x.place=value);
+  for(let j=0;j<i;j++)if(items[j].groupCount>1&&j+items[j].groupCount>i)items.slice(j,j+items[j].groupCount).forEach(x=>x.place=value);
+ }
+ updateTables();
+}
+function parisDifRemove(idx,id){
+ const items=parisDifList(idx),i=items.findIndex(x=>x.id===id);
+ items.forEach(x=>{x.pairNext=false;x.groupCount=1;});
+ parisDifEdits[idx]=items.filter(x=>x.id!==id);updateTables();
+}
+function parisDifMove(idx,id,step){
+ const a=parisDifList(idx),i=a.findIndex(x=>x.id===id),j=i+step;
+ if(i<0||j<0||j>=a.length)return;
+ // Desagrupar antes de cambiar el orden para evitar asociaciones accidentales.
+ a.forEach(x=>{x.pairNext=false;x.groupCount=1;});
+ [a[i],a[j]]=[a[j],a[i]];updateTables();
+}
+// Orientación comprobada con dimensiones reales de la imagen; no inferir por nombre.
+const parisDifDimensions={};
+function parisDifOrientation(item){
+ const d=parisDifDimensions[item.url];
+ if(!d||!d.w||!d.h)return 'unknown';
+ const ratio=d.w/d.h;
+ return ratio>=0.90&&ratio<=1.10?'square':ratio<0.90?'vertical':'horizontal';
+}
+function parisDifInspect(idx){
+ parisDifList(idx).forEach(item=>{
+  if(parisDifDimensions[item.url])return;
+  parisDifDimensions[item.url]={w:0,h:0};
+  const img=new Image();
+  img.onload=()=>{
+   parisDifDimensions[item.url]={w:img.naturalWidth,h:img.naturalHeight};
+   const items=parisDifList(idx);
+   for(let i=0;i<items.length;i++){
+    if(items[i].groupCount>1){
+     const group=items.slice(i,i+items[i].groupCount);
+     if(group.some(x=>parisDifOrientation(x)!=='square'))items[i].groupCount=1;
+    }
+   }
+   const panel=document.querySelector(`[data-paris-dif-editor='${idx}']`);
+   if(panel){const wasOpen=panel.open;const fresh=document.createElement('div');fresh.innerHTML=parisDifEditor(idx);panel.replaceWith(fresh.firstElementChild);document.querySelector(`[data-paris-dif-editor='${idx}']`).open=wasOpen;}
+  };
+  img.onerror=()=>{parisDifDimensions[item.url]={w:0,h:0,error:true};};
+  img.src=item.url;
+ });
+}
+function parisDifGroup(idx,id,count){
+ const items=parisDifList(idx),i=items.findIndex(x=>x.id===id);
+ if(i<0)return;
+ if(count===1){items[i].groupCount=1;updateTables();return;}
+ if(i+count>items.length)return alert('No hay suficientes imágenes consecutivas.');
+ const chosen=items.slice(i,i+count);
+ if(chosen.some(x=>parisDifOrientation(x)!=='square'))return alert('Solo se pueden agrupar imágenes cuadradas verificadas. Las verticales y horizontales permanecen en una columna.');
+ // Impedir grupos solapados y asegurar que todas compartan ubicación.
+ for(let j=0;j<items.length;j++){
+  if(items[j].groupCount>1&&j<i+count&&j+items[j].groupCount>i)items[j].groupCount=1;
+ }
+ items[i].groupCount=count;
+ chosen.forEach(x=>x.place=items[i].place);
+ updateTables();
+}
+function parisDifPair(idx,id){
+ const items=parisDifList(idx),item=items.find(x=>x.id===id);
+ parisDifGroup(idx,id,item&&item.groupCount===2?1:2);
+}
+function parisDifRender(idx,preview){
+ const items=parisDifList(idx);
+ const groups={beforeDescription:'',afterDescription:'',default:'',beforeStrip:'',afterStrip:'',beforeVideo:'',end:''};
+ const safeSrc=item=>String(item.url||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+ const single=item=>{
+  const align=['left','right','center'].includes(item.align)?item.align:'center';
+  const width=['100%','70%','40%'].includes(item.size)?item.size:'100%';
+  return `<div style='width:100%;margin:12px 0;overflow:hidden;text-align:${align};'><img src='${safeSrc(item)}' alt='' style='display:${align==='center'?'block':'inline-block'};width:${width};max-width:100%;height:auto;margin:${align==='center'?'0 auto':'0'};border-radius:10px;'></div>`;
+ };
+ const multi=arr=>{
+  const n=arr.length;
+  return `<style>@media screen and (max-width:600px){table.paris-dif-responsive-grid,table.paris-dif-responsive-grid tbody,table.paris-dif-responsive-grid tr{display:block!important;width:100%!important;}table.paris-dif-responsive-grid td{display:block!important;width:100%!important;box-sizing:border-box!important;padding:0!important;margin:0 0 12px!important;}table.paris-dif-responsive-grid img{display:block!important;width:100%!important;height:auto!important;max-width:100%!important;}}</style><table class='paris-dif-responsive-grid' role='presentation' cellpadding='0' cellspacing='0' border='0' style='width:100%;max-width:100%;table-layout:fixed;border-collapse:separate;border-spacing:6px 0;margin:12px 0;'><tbody><tr>${arr.map(x=>`<td width='${100/n}%' valign='middle' style='width:${100/n}%;vertical-align:middle;text-align:center;padding:0;'><img src='${safeSrc(x)}' alt='' style='display:block;width:100%;max-width:100%;height:auto;margin:0 auto;border-radius:10px;'></td>`).join('')}</tr></tbody></table>`;
+ };
+ for(let i=0;i<items.length;i++){
+  const item=items[i];
+  const place=Object.prototype.hasOwnProperty.call(groups,item.place)?item.place:'default';
+  const count=item.groupCount|| (item.pairNext?2:1);
+  const selection=items.slice(i,i+count);
+  if(count>1&&selection.length===count&&selection.every(x=>parisDifOrientation(x)==='square')){
+   groups[place]+=multi(selection);i+=count-1;
+  }else groups[place]+=single(item);
+ }
+ return groups;
+}
+function parisDifEditor(idx){
+ const items=parisDifList(idx);
+ if(items.some(x=>!parisDifDimensions[x.url]))setTimeout(()=>parisDifInspect(idx),0);
+ const places=[['default','Ubicación original'],['beforeDescription','Antes de descripción larga'],['afterDescription','Después de descripción larga'],['beforeStrip','Antes de la franja'],['afterStrip','Después de la franja'],['beforeVideo','Antes del video'],['end','Final de la ficha']];
+ const opt=(choices,selected)=>choices.map(([v,label])=>`<option value='${v}' ${v===selected?'selected':''}>${label}</option>`).join('');
+ return `<details data-paris-dif-editor='${idx}' style='margin:10px 0;border:1px solid #d8e2ee;border-radius:9px;padding:9px;background:#f8fbff;'>
+ <summary style='cursor:pointer;font-size:13px;font-weight:700;color:#234969;'>🖼️ Administrar imágenes diferenciadoras (${items.length})</summary>
+ <div style='padding-top:9px;font-size:12px;'>
+ ${items.map((x,i)=>`<div style='border:1px solid #e3e8ef;border-radius:8px;background:white;padding:9px;margin-bottom:8px;'>
+ <div style='display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;'><span style='overflow-wrap:anywhere;'><b>${x.name}</b> · ${x.origin}</span><span>
+ <button type='button' onclick="parisDifMove(${idx},'${x.id}',-1)" ${i===0?'disabled':''} title='Subir'>↑</button>
+ <button type='button' onclick="parisDifMove(${idx},'${x.id}',1)" ${i===items.length-1?'disabled':''} title='Bajar'>↓</button>
+ <button type='button' onclick="parisDifRemove(${idx},'${x.id}')" title='Quitar de ficha'>✕</button></span></div>
+ ${(()=>{const count=x.groupCount||1;const inside=items.some((z,j)=>j<i&&(z.groupCount||1)>i-j);const state=parisDifOrientation(x);const groupable=n=>i+n<=items.length&&items.slice(i,i+n).every(z=>parisDifOrientation(z)==='square')&&!inside;return `<div style='margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;'>
+ <small style='color:#64748b;'>${state==='square'?'Cuadrada':state==='vertical'?'Vertical (1 columna)':state==='horizontal'?'Horizontal (1 columna)':'Orientación pendiente'}</small>
+ ${count>1?`<button type='button' onclick="parisDifGroup(${idx},'${x.id}',1)">↩ Desagrupar ${count} imágenes</button>`:''}
+ ${count===1&&!inside?`<button type='button' ${groupable(2)?'':'disabled title="Se requieren 2 imágenes cuadradas verificadas"'} onclick="parisDifGroup(${idx},'${x.id}',2)">▦ 2 columnas</button><button type='button' ${groupable(3)?'':'disabled title="Se requieren 3 imágenes cuadradas verificadas"'} onclick="parisDifGroup(${idx},'${x.id}',3)">▦ 3 columnas</button>`:''}
+ ${inside?`<small style='color:#2563eb;'>Forma parte de un grupo anterior</small>`:''}
+ </div>`;})()}
+ <div style='display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;'>
+ <label>Ubicación <select onchange="parisDifChange(${idx},'${x.id}','place',this.value)">${opt(places,x.place)}</select></label>
+ <label>Tamaño <select onchange="parisDifChange(${idx},'${x.id}','size',this.value)">${opt([['100%','100%'],['70%','70%'],['40%','40%']],x.size)}</select></label>
+ <label>Alineación <select onchange="parisDifChange(${idx},'${x.id}','align',this.value)">${opt([['center','Centro'],['left','Izquierda'],['right','Derecha']],x.align)}</select></label>
+ </div></div>`).join('')}
+ <div style='display:flex;gap:7px;align-items:center;flex-wrap:wrap;'><input id='parisDifNew_${idx}' type='text' placeholder='Dif_498567999_02.webp' style='flex:1 1 180px;min-width:0;padding:7px;border:1px solid #cbd5e1;border-radius:6px;' onkeydown="if(event.key==='Enter'){event.preventDefault();parisDifAdd(${idx});}"><button type='button' onclick='parisDifAdd(${idx})'>＋ Agregar imagen</button></div>
+ <small>Solo nombre .webp · FileZilla &gt; Diferenciadores · URL automática. Agrupa hasta 3 imágenes cuadradas en Desktop; en Mobile se apilan. Las verticales y horizontales siempre van en una columna. Puedes desagruparlas cuando quieras; se respeta en la exportación.</small>
+ </div></details>`;
+}
+
 function buildParisFichaTools(rowIndex){
   const hasApplied=smartSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado')||claimSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado');
   return `<div class='paris-inline-tools'>
@@ -1338,7 +1644,7 @@ function buildParisFichaTools(rowIndex){
       <option value='youtube'>Video YouTube</option>
     </select>
     <input type='text' placeholder='Escribe la sugerencia' style='flex:1 1 180px;min-width:0;font-size:12px;padding:6px 8px;border:1px solid #d0d5dd;border-radius:6px;' onkeydown="if(event.key==='Enter'){event.preventDefault();addParisSuggestion(${Number(rowIndex)});}">
-    <datalist id='parisClaimOptions_${Number(rowIndex)}'>${ICONO_OPTIONS.map(v=>`<option value='${parisEsc(v)}'></option>`).join('')}</datalist>
+    <datalist id='parisClaimOptions_${Number(rowIndex)}'>${parisClaimOptionsForRow(excelRows[Number(rowIndex)]).map(v=>`<option value='${parisEsc(v)}'></option>`).join('')}</datalist>
     <button type='button' onclick='addParisSuggestion(${Number(rowIndex)})' style='padding:6px 9px!important;margin:0!important;font-size:11px!important;border:1px solid #ff6200!important;border-radius:6px!important;background:#ff6200!important;color:#fff!important;cursor:pointer!important;box-shadow:none!important;'>Agregar</button>
   </div>
   ${buildParisManualControls(rowIndex)}`;
@@ -1570,6 +1876,35 @@ const INFO_SIN_CAMPO_CATEGORIES = [
   {category:'Perfumería',hints:['perfume','perfumería','perfumeria','eau de parfum','eau de toilette','colonia','fragancia'],rules:[
     {label:'Recargable',patterns:[/\brecargable(?:s)?\b/i,/\brefillable\b/i]}, {label:'Vaporizador',patterns:[/\bvaporizador\b/i,/\bspray\b/i]}, {label:'Formato viaje',patterns:[/\bformato\s+(?:de\s+)?viaje\b/i,/\btravel\s+size\b/i]}
   ]},
+  // Sillas de auto: coincidencias explícitas, sin inferir certificaciones ni capacidades.
+  {category:'Sillas de auto infantiles',hints:['silla de auto','silla para auto','asiento infantil para auto','alzador infantil','butaca infantil','portabebe para auto','portabebé para auto'],rules:[
+    {label:'Silla de auto convertible',patterns:[/\bsilla\s+(?:de|para)\s+auto\s+convertible\b/i,/\bsilla\s+convertible\b/i]},
+    {label:'Silla de auto 360°',patterns:[/\bsilla\s+(?:de|para)\s+auto[^.\n;]{0,65}\b360\s*(?:°|grados)?/i]},
+    {label:'Alzador infantil',patterns:[/\balzador\s+(?:infantil|de\s+auto|para\s+auto)\b/i]},
+    {label:'Portabebé para auto',patterns:[/\bportabeb[eé]\s+(?:para|de)\s+auto\b/i]},
+    {label:'Sistema Isofix',patterns:[/\bisofix\b/i]},
+    {label:'Giro 360°',patterns:[/\b(?:giro|rotaci[oó]n|giratoria?|rotatoria?)\s*(?:de\s*)?360\s*(?:°|grados)?/i]},
+    {label:'Instalación a contramarcha',patterns:[/\b(?:instalaci[oó]n\s+(?:a|en)\s+)?contra\s*[- ]?marcha\b/i]},
+    {label:'Protección contra impactos laterales',patterns:[/\bprotecci[oó]n\s+(?:contra\s+)?impactos?\s+laterales?\b/i]},
+    {label:'Protección lateral',patterns:[/\bprotecci[oó]n\s+lateral\b/i]},
+    {label:'Arnés de 5 puntos',patterns:[/\barn[eé]s\s+(?:de\s+)?5\s+puntos\b/i]},
+    {label:'Arnés ajustable',patterns:[/\barn[eé]s\s+(?:ajustable|regulable)\b/i]},
+    {label:'Apoyacabeza ajustable',patterns:[/\b(?:apoya\s*cabeza|reposacabezas?)\s+(?:ajustable|regulable)\b/i]},
+    {label:'3 posiciones de reclinado',patterns:[/\b3\s+posiciones?\s+de\s+reclinad[oa]\b/i]},
+    {label:'Reclinado ajustable',patterns:[/\breclinad[oa]\s+(?:ajustable|regulable)\b/i]},
+    {label:'Protectores de hombros',patterns:[/\bprotectores?\s+de\s+hombros?\b/i]},
+    {label:'Guías de cinturón',patterns:[/\bgu[ií]as?\s+(?:de|para)\s+cintur[oó]n\b/i]},
+    {label:'Botón de desbloqueo',patterns:[/\bbot[oó]n\s+de\s+desbloqueo\b/i]},
+    {label:'Sistema semiuniversal',patterns:[/\bsemi\s*[- ]?universal\b/i]},
+    {label:'Contramarcha hasta 18 kg',patterns:[/\bcontra\s*[- ]?marcha[^.\n;]{0,45}\b(?:hasta\s+)?18\s*k(?:g|ilos?)\b/i]},
+    {label:'Hasta 36 kg',patterns:[/\b(?:hasta|capacidad\s+(?:de|hasta)|soporta\s+hasta)\s*(?:los\s*)?36\s*k(?:g|ilos?)\b/i]},
+    {label:'Grupo 0+',patterns:[/\bgrupo\s*0\s*\+/i]},
+    {label:'Grupo 1',patterns:[/\bgrupo\s*1\b/i]},
+    {label:'Grupo 2/3',patterns:[/\bgrupo\s*2\s*[-/]\s*3\b/i]},
+    {label:'Instalación en sentido de marcha',patterns:[/\b(?:instalaci[oó]n\s+)?(?:en\s+)?sentido\s+de\s+(?:la\s+)?marcha\b/i]},
+    {label:'Certificación 3CV',patterns:[/\b(?:certificaci[oó]n|certificad[oa])\s*:?\s*3cv\b/i]},
+    {label:'Desde el nacimiento',patterns:[/\bdesde\s+(?:el\s+)?nacimiento\b/i]}
+  ]},
   {category:'Bebé e Infantil',hints:['bebé','bebe','infantil','niño','niña','mamadera','chupete','coche','silla de auto','mudador','pañal','panal'],rules:[
     {label:'Libre de BPA',patterns:[/\blibre\s+de\s+bpa\b/i,/\bsin\s+bpa\b/i,/\bbpa\s*[- ]?free\b/i]}, {label:'Lavable',patterns:[/\blavable(?:s)?\b/i]}, {label:'Plegable',patterns:[/\bplegable(?:s)?\b/i]}, {label:'Hipoalergénico',patterns:[/\bhipoalerg[eé]nic[oa]s?\b/i]}, {label:'Altura regulable',patterns:[/\baltura\s+(?:regulable|ajustable)\b/i]}
   ]},
@@ -1662,16 +1997,27 @@ function infoRuleAppliesToRow(rule,row){
   return rule.hints.some(h=>haystack.includes(normalizaTextoTecnologia(h)));
 }
 
-function isInfoMatchInsideList(text, matched){
+function normalizeStandaloneInfo(text){
+  return String(text||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ')
+    .replace(/\*\*|__/g,'').replace(/^[\s•\-–—·:]+|[\s.:;]+$/g,'')
+    .replace(/\s+/g,' ').trim().toLocaleLowerCase('es');
+}
+function isStandaloneInfoItem(item, suggestion){
+  const value=normalizeStandaloneInfo(item);
+  if(!value) return false;
+  return [suggestion.normalized,suggestion.value].some(x=>normalizeStandaloneInfo(x)===value);
+}
+function isInfoMatchInsideList(text, matched, normalized){
   const raw=String(text||'');
-  const needle=String(matched||'').trim();
-  if(!needle) return false;
-  // Lista en texto plano: - valor / • valor / – valor / — valor
+  const suggestion={value:matched,normalized:normalized||matched};
   const lines=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
-  if(lines.some(line => /^\s*[-•–—]\s+/.test(line) && line.toLowerCase().includes(needle.toLowerCase()))) return true;
-  // Lista HTML ya existente.
-  const escaped=needle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  try { return new RegExp('<li\\b[^>]*>[\\s\\S]*?'+escaped+'[\\s\\S]*?<\\/li>','i').test(raw); } catch(e) { return false; }
+  if(lines.some(line => /^\s*[-•–—]\s+/.test(line) && isStandaloneInfoItem(line,suggestion))) return true;
+  const liRe=/<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+  let m;
+  while((m=liRe.exec(raw))!==null){
+    if(isStandaloneInfoItem(m[1],suggestion)) return true;
+  }
+  return false;
 }
 
 function sourceFieldKey(row, sourceName){
@@ -1690,36 +2036,24 @@ function removeInfoListItemFromSource(row, suggestion){
   if(!key) return false;
   let text=String(row[key]||'');
   if(!text) return false;
-  const rule=INFO_SIN_CAMPO_RULES.find(r=>r.label===suggestion.normalized);
-  if(!rule) return false;
   let changed=false;
-
-  // 1) Texto plano: elimina solamente la línea de lista donde aparece el atributo.
+  // Borrar solo un item completo y textual; nunca un atributo dentro de una frase descriptiva.
   const eol=text.includes('\r\n')?'\r\n':'\n';
-  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
   const kept=[];
-  for(const line of lines){
-    const isList=/^\s*[-•–—]\s+/.test(line);
-    const hit=isList && rule.patterns.some(rx => { const r=new RegExp(rx.source,rx.flags.replace('g','')); return r.test(line); });
-    if(hit){ changed=true; continue; }
+  for(const line of text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n')){
+    if(/^\s*[-•–—]\s+/.test(line) && isStandaloneInfoItem(line,suggestion)){
+      changed=true;
+      continue;
+    }
     kept.push(line);
   }
-  if(changed){
-    text=kept.join(eol).replace(/(?:\r?\n){3,}/g,eol+eol).trim();
-  }
-
-  // 2) HTML: elimina <li> completo si contiene el atributo detectado.
-  for(const rx of rule.patterns){
-    const flags=(rx.flags||'').replace('g','');
-    const liRe=/<li\b[^>]*>[\s\S]*?<\/li>/gi;
-    text=text.replace(liRe, li => {
-      const plain=li.replace(/<[^>]+>/g,' ');
-      const r=new RegExp(rx.source,flags);
-      if(r.test(plain)){ changed=true; return ''; }
-      return li;
-    });
-  }
-  if(changed) row[key]=text;
+  text=kept.join(eol);
+  text=text.replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi,li=>{
+    const content=li.replace(/^<li\b[^>]*>/i,'').replace(/<\/li>$/i,'');
+    if(isStandaloneInfoItem(content,suggestion)){changed=true;return '';}
+    return li;
+  });
+  if(changed) row[key]=text.replace(/(?:\r?\n){3,}/g,eol+eol).trim();
   return changed;
 }
 
@@ -1735,11 +2069,17 @@ function detectInfoWithoutField(row,rowIndex,sku){
         // Seguridad de contexto: "Apto para horno" exige una referencia explícita a horno/oven
         // en el texto encontrado. Expresiones sobre fuego, calor o tipos de cocina no califican.
         if(rule.label==='Apto para horno' && !/\b(?:horno|oven)\b/i.test(String(m[0]||''))) continue;
+        if(rule.category==='Sillas de auto infantiles' && rule.label==='Protección lateral' &&
+           /protecci[oó]n\s+(?:contra\s+)?impactos?\s+laterales?/i.test(allTextFields(row).map(x=>String(x.value||'')).join(' '))) continue;
+        // La franja visual ya presenta giro, reclinado, grupos y peso de sillas de auto.
+        // No duplicar estos atributos como chips de Información Adicional.
+        if(rule.category==='Sillas de auto infantiles' &&
+           /^(?:Silla de auto 360°|Giro 360°|3 posiciones de reclinado|Reclinado ajustable|Grupo 0\+|Grupo 1|Grupo 2\/3|Hasta 36 kg)$/.test(rule.label)) continue;
         const normalizedLabel = rule.label==='Apto para horno' ? ovenChipLabel(row) : rule.label;
         const key=normalizedLabel.toLowerCase();
         if(emitted.has(key)) break;
         emitted.add(key);
-        const inList=isInfoMatchInsideList(text,m[0]);
+        const inList=isInfoMatchInsideList(text,m[0],normalizedLabel);
         smartSuggestions.push({type:'unmapped',icon:'💡',rowIndex,sku,title:'Agregar Información Adicional',value:m[0],normalized:normalizedLabel,source:f.name,category:rule.category,excerpt:excerptAround(text,m[0]),inList,status:'Sugerencia'});
         break;
       }
@@ -1842,13 +2182,67 @@ function detectBadUrls(row,rowIndex,sku){
   });
 }
 
+function detectParisSeatClaim(row,rowIndex,sku){
+  const text=Object.entries(row||{}).filter(([k,v])=>v!=null && /nombre|descrip|html|grupo|peso|reclin|giro|categor|tipo|uso|orientacion|sentido/i.test(k)).map(([k,v])=>String(v)).join(' ').replace(/<[^>]*>/g,' ');
+  const norm=text.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!parisIsCarSeatProduct(row))return;
+  const features=[];
+  if(/360\s*(?:°|grados)?|giratori|rotaci[oó]n/i.test(norm))features.push('Giro 360°');
+  if(/reclin(?:able|ado|ada|acion|ar|a)|posiciones?\s+de\s+reclinado/i.test(norm))features.push('Reclinable');
+  if(/grupos?\s*(?:de\s+uso)?\s*[:0-9]/i.test(norm))features.push('Grupos de uso');
+  if(/peso\s+(?:maximo|recomendado|soportado|admitido)|soporta\s+hasta|apta?\s+(?:para\s+)?(?:ninos?\s+)?hasta\s+\d+\s*(?:kg|kilos?)/i.test(norm))features.push('Peso recomendado');
+  else if(/\bpeso\s*(?:del\s+producto)?\s*(?:\(\s*(?:kg|kilos?)\s*\))?\s*:\s*\d+(?:[.,]\d+)?\s*(?:(?:kg|kilos?)\b)?/i.test(norm))features.push('Peso del producto');
+  if(parisSeatUsageFromRow(row))features.push('Uso recomendado');
+  if(!features.length)return;
+  smartSuggestions.push({type:'seatclaim',icon:'🏷️',rowIndex,sku,title:'Franja de características · Silla de auto',value:features.join(' · '),normalized:features.join(' · '),source:'Descripción del producto',status:row.__parisSeatClaimApproved?'Aplicado':'Sugerencia'});
+}
+function removeSeatFeatureListItems(row){
+  // Solo se ejecuta tras aprobar la franja. Conserva los textos explicativos.
+  const keys=Object.keys(row).filter(k=>/descripci[oó]n larga|^long_description$|^html$|descripci[oó]n corta|^short_description$/i.test(k));
+  const feature=/\b(?:giro|rotaci[oó]n|giratori[ao]|reclin(?:able|ado|ada|aci[oó]n)|grupos?\s+(?:de\s+uso)?|peso\s*(?::|(?:del\s+producto|m[aá]ximo|recomendado|soportado|admitido))|soporta\s+hasta)\b/i;
+  const weightOnly=/^\s*(?:[-•–—*]\s*)?(?:peso(?:\s+del\s+producto)?|peso\s+neto|peso\s+bruto)\s*:\s*\d{1,3}(?:[.,]\d+)?\s*(?:kg|kilos?)\s*\.?\s*$/i;
+  // El peso solo se retira si realmente figura como tarjeta en la franja aprobada.
+  const seatHtml=buildParisSeatBenefits(row);
+  const shownWeight=/paris-seat-title[^>]*>Peso del producto<\/div>/.test(seatHtml);
+  keys.forEach(key=>{
+    let txt=String(row[key]||'');
+    txt=txt.replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi,li=>{
+      const plain=li.replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').trim();
+      if(shownWeight && weightOnly.test(plain)) return '';
+      return feature.test(plain)?'':li;
+    });
+    const eol=txt.includes('\r\n')?'\r\n':'\n';
+    txt=txt.replace(/\r\n/g,'\n').split('\n').filter(line=>{
+      const trimmed=line.trim();
+      if(shownWeight && weightOnly.test(trimmed)) return false;
+      return !(/^[-•–—*]\s+/.test(trimmed)&&feature.test(trimmed));
+    }).join(eol);
+    // Retira una linea de peso aislada dentro de <p>, sin alterar parrafos narrativos.
+    if(shownWeight)txt=txt.replace(/<p\b[^>]*>\s*(?:<strong\b[^>]*>)?\s*(?:peso(?:\s+del\s+producto)?|peso\s+neto|peso\s+bruto)\s*:\s*\d{1,3}(?:[.,]\d+)?\s*(?:kg|kilos?)\s*\.?\s*(?:<\/strong>)?\s*<\/p>/gi,'');
+    row[key]=txt;
+  });
+}
+function parisSeatStripHasFeature(row, value){
+  if(!row || row.__parisSeatClaimApproved!==true) return false;
+  const strip=buildParisSeatBenefits(row);
+  if(!strip) return false;
+  const label=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const features=[
+    [/\b(?:360|giro|rotacion|giratori)/, /paris-seat-title[^>]*>Giro 360°<\/div>/],
+    [/\b(?:reclin|posiciones? de reclinado)/, /paris-seat-title[^>]*>Reclinable<\/div>/],
+    [/\b(?:grupos? (?:de uso)?|grupo 0|grupo 1|grupo 2|grupo 3)/, /paris-seat-title[^>]*>Grupo<\/div>/],
+    [/\b(?:peso recomendado|peso maximo|peso soportado|hasta \d+ ?kg|capacidad maxima)/, /paris-seat-title[^>]*>Peso recomendado<\/div>/],
+    [/\b(?:peso del producto|peso bruto|peso neto)/, /paris-seat-title[^>]*>Peso del producto<\/div>/],
+    [/\b(?:uso recomendado|uso por norma|contramarcha|contra marcha|a favor de la marcha)/, /paris-seat-title[^>]*>Uso recomendado<\/div>/]
+  ];
+  return features.some(([pattern,card])=>pattern.test(label)&&card.test(strip));
+}
 function detectSmartSuggestions(){
   smartSuggestions=[];
   excelRows.forEach((row,rowIndex)=>{
     const sku=get(row,['SKU']);
-    detectMaterial(row,rowIndex,sku);
-    detectDimensions(row,rowIndex,sku);
-    detectWeight(row,rowIndex,sku);
+    detectParisSeatClaim(row,rowIndex,sku);
+    if(!row.__parisSeatClaimApproved){detectMaterial(row,rowIndex,sku);detectDimensions(row,rowIndex,sku);detectWeight(row,rowIndex,sku);}
     detectarTecnologias(row).forEach(t=>{
       smartSuggestions.push({
         type:'technology', icon:'⚡', rowIndex, sku,
@@ -1860,6 +2254,17 @@ function detectSmartSuggestions(){
     detectCareInstructions(row,rowIndex,sku);
     detectBadUrls(row,rowIndex,sku);
   });
+  // En sillas de auto, estas características pertenecen a la franja visual, no a Información adicional.
+  // La exclusión opera incluso antes de aprobar la franja, para evitar chips redundantes.
+  smartSuggestions=smartSuggestions.filter(s=>{
+    if(s.type==='seatclaim')return true;
+    const row=excelRows[s.rowIndex];
+    const label=String(s.normalized||s.value||s.title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const seatText=Object.entries(row||{}).filter(([k,v])=>v!=null && /nombre|descrip|html|categor|tipo/i.test(k)).map(([k,v])=>String(v)).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const isCarSeat=/silla\s+(?:de|para)\s+auto|silla\s+infantil|butaca\s+infantil|portabebe\s+(?:de|para)\s+auto/i.test(seatText);
+    if(isCarSeat && /^(?:instalacion a contramarcha|desde el nacimiento|reclinable)$/.test(label))return false;
+    return !parisSeatStripHasFeature(row,label);
+  });
   renderSmartSuggestions();
 }
 
@@ -1869,7 +2274,8 @@ function setSmartField(row,key,value){ row[key]=value; }
 function applySmartSuggestion(i,silent=false){
   const s=smartSuggestions[i]; if(!s || s.status!=='Sugerencia') return false;
   const row=excelRows[s.rowIndex]; if(!row) return false;
-  if(s.type==='material') setSmartField(row,'Material',s.normalized);
+  if(s.type==='seatclaim'){row.__parisSeatSourceSnapshot=JSON.stringify(row);row.__parisSeatClaimApproved=true;/* conservar íntegramente la descripción original */}
+  else if(s.type==='material') setSmartField(row,'Material',s.normalized);
   else if(s.type==='dimensions') setSmartField(row,'Dimensiones',s.normalized);
   else if(s.type==='weight') setSmartField(row,s.targetKey||'Peso',s.normalized||s.value);
   else if(s.type==='technology'){
@@ -1961,7 +2367,7 @@ function fallbackCopySku(value,done){
 }
 
 function getSectionItems(sectionKey){
-  if(sectionKey==='claims') return claimSuggestions.map((s,i)=>({kind:'claim',s,i}));
+  if(sectionKey==='claims') return [...claimSuggestions.map((s,i)=>({kind:'claim',s,i})),...smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='seatclaim')];
   if(sectionKey==='tech') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology');
   if(sectionKey==='dimensions') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='dimensions');
   if(sectionKey==='material') return smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material');
@@ -2006,6 +2412,7 @@ function approveAllInSection(sectionKey){
 function getSuggestionGroupKey(x){
   const s=x.s||{};
   if(x.kind==='claim') return 'claim::'+String(s.label||'Claim');
+  if(s.type==='seatclaim') return 'seatclaim::'+String(s.normalized||'Silla de auto');
   if(s.type==='technology') return 'technology::'+String(s.normalized||s.value||'Tecnología');
   if(s.type==='material') return 'material::'+String(s.normalized||s.value||'Material');
   if(s.type==='dimensions') return 'dimensions::'+String(s.title||'Dimensiones detectadas');
@@ -2018,6 +2425,7 @@ function getSuggestionGroupKey(x){
 function getSuggestionGroupTitle(x){
   const s=x.s||{};
   if(x.kind==='claim') return '🏷️ '+String(s.label||'Claim');
+  if(s.type==='seatclaim') return '🏷️ Franja de características · Silla de auto';
   if(s.type==='technology') return '⚡ '+String(s.normalized||s.value||'Tecnología');
   if(s.type==='material') return '🧵 Material · '+String(s.normalized||s.value||'Detectado');
   if(s.type==='dimensions') return '📐 '+String(s.title||'Dimensiones detectadas');
@@ -2068,6 +2476,54 @@ function approveAllCareForSku(rowIndex){
   alert('✅ Cuidados de uso aprobados para el SKU: '+n+'.');
 }
 
+
+// Edicion contextual de la franja: seleccion y texto en un solo bloque.
+function parisSeatManagerDefaults(row){
+  const original=row.__parisSeatManaged;
+  if(original)return original;
+  const detected={};
+  const wasApproved=row.__parisSeatClaimApproved;
+  row.__parisSeatClaimApproved=true;
+  const html=buildParisSeatBenefits(row);
+  row.__parisSeatClaimApproved=wasApproved;
+  for(const [claim,cfg] of Object.entries(PARIS_SEAT_CLAIM_CONFIG)){
+    const match=html.match(new RegExp('paris-seat-title[^>]*>'+cfg.title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'<\\/div>\\s*<div class="paris-seat-detail">([^<]*)'));
+    const isDetected=html.includes('>'+cfg.title+'</div>') || (cfg.icon==='weight'&&html.includes('>Peso recomendado</div>'));
+    detected[cfg.title]={enabled:isDetected,detail:match?match[1].replace(/&amp;/g,'&'):cfg.detail};
+  }
+  return detected;
+}
+function parisSeatManagerHtml(rowIndex){
+  const row=excelRows[rowIndex];if(!row||!parisIsCarSeatProduct(row))return '';
+  const state=parisSeatManagerDefaults(row);
+  const cards=Object.entries(PARIS_SEAT_CLAIM_CONFIG).map(([claim,cfg])=>{
+    const item=state[cfg.title]||{enabled:false,detail:cfg.detail};
+    const src=ICONO_URLS[claim];
+    return `<label class="seat-manager-line"><input type="checkbox" data-seat-title="${escClaim(cfg.title)}" ${item.enabled?'checked':''}><img src="${src}" alt="" width="34" height="34"><span class="seat-manager-field"><strong>${escClaim(cfg.title)}</strong><input type="text" data-seat-detail="${escClaim(cfg.title)}" value="${escClaim(item.detail||'')}" placeholder="Escribir detalle de la característica" aria-label="Texto de ${escClaim(cfg.title)}"></span></label>`;
+  }).join('');
+  return `<details class="seat-manager" data-row="${rowIndex}"><summary>⚙ Gestionar franja · Seleccionar y editar características</summary><div class="seat-manager-items">${cards}</div><div class="seat-manager-footer"><small>Activa solo características verificadas en el producto. Los textos se pueden editar aquí.</small><button type="button" onclick="saveParisSeatManager(${rowIndex},this)">✓ Guardar franja</button></div></details>`;
+}
+function saveParisSeatManager(rowIndex,button){
+  const row=excelRows[rowIndex];if(!row)return;
+  const root=button.closest('.seat-manager');if(!root)return;
+  const managed={};
+  for(const [claim,cfg] of Object.entries(PARIS_SEAT_CLAIM_CONFIG)){
+    const checkbox=Array.from(root.querySelectorAll('[data-seat-title]')).find(el=>el.dataset.seatTitle===cfg.title);
+    const input=Array.from(root.querySelectorAll('[data-seat-detail]')).find(el=>el.dataset.seatDetail===cfg.title);
+    const enabled=!!checkbox?.checked;
+    const detail=(input?.value||'').trim();
+    if(enabled&&!detail){alert('Completa el texto de '+cfg.title+' antes de guardar.');input?.focus();return;}
+    managed[cfg.title]={enabled,detail};
+  }
+  if(!row.__parisSeatSourceSnapshot)row.__parisSeatSourceSnapshot=JSON.stringify(row);
+  row.__parisSeatManaged=managed;
+  row.__parisSeatClaimApproved=Object.values(managed).some(x=>x.enabled);
+  // Evitar duplicados con los claims de icono tradicionales.
+  for(let i=1;i<=6;i++)if(PARIS_SEAT_CLAIM_CONFIG[row['Icono '+i]])row['Icono '+i]='';
+  smartSuggestions.forEach(s=>{if(s.rowIndex===rowIndex&&s.type==='seatclaim')s.status=row.__parisSeatClaimApproved?'Aplicado':'Ignorado';});
+  renderGroupedSuggestions();updateTables();
+}
+
 function renderSmartSuggestions(){ renderGroupedSuggestions(); }
 
 // Conserva el estado abierto/cerrado de cada menu aunque se vuelvan a renderizar las sugerencias.
@@ -2102,7 +2558,7 @@ function renderGroupedSuggestions(){
   }
 
   const sections=[
-    {key:'claims',title:'🏷️ Claims / Logos',items:claimSuggestions.map((s,i)=>({kind:'claim',s,i}))},
+    {key:'claims',title:'🏷️ Claims / Logos',items:[...claimSuggestions.map((s,i)=>({kind:'claim',s,i})),...smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='seatclaim')]},
     {key:'tech',title:'⚡ Tecnologías',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='technology')},
     {key:'dimensions',title:'↔ Dimensiones',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='dimensions')},
     {key:'material',title:'▱ Material',items:smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.type==='material')},
@@ -2123,6 +2579,10 @@ function renderGroupedSuggestions(){
       const claimLogo=ICONO_URLS[s.label] || '';
       body=`<div style="display:flex;align-items:center;gap:10px;">${claimLogo?`<img src="${claimLogo}" alt="${escClaim(s.label)}" title="${escClaim(s.label)}" style="width:42px;height:42px;object-fit:contain;flex:0 0 auto;">`:''}<div><div class="ai-status">${escClaim(s.label)}</div><span class="suggestion-keyword">${escClaim(s.matched)}</span></div></div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}${s.appliedField?' · '+escClaim(s.appliedField):''}</div>`;
       actions=canApply?`<div class="ai-actions"><button onclick="applyClaimSuggestion(${x.i})">✓ Agregar logo</button><button onclick="ignoreClaimSuggestion(${x.i})">Ignorar</button></div>`:'';
+    }else if(s.type==='seatclaim'){
+      const canApply=s.status==='Sugerencia';
+      body=`<div class="ai-status">Franja visual para silla de auto</div><div class="suggestion-detail">Atributos detectados: <strong>${escClaim(s.normalized)}</strong></div><div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)} · Se incorporará solo al aprobar</div>`;
+      actions=`${parisSeatManagerHtml(s.rowIndex)}${canApply?`<div class="ai-actions"><button onclick="applySmartSuggestion(${x.i})">✓ Aprobar detectadas</button><button onclick="ignoreSmartSuggestion(${x.i})">Ignorar</button></div>`:''}`;
     }else if(s.type==='technology'){
       const canApply=s.status==='Sugerencia';
       body=`<div class="ai-status">${escClaim(s.normalized)}</div><span class="suggestion-keyword">${escClaim(s.value)}</span>${s.brand?`<div class="suggestion-status"><strong>Marca:</strong> ${escClaim(s.brand)}</div>`:''}<div class="suggestion-status"><strong>Estado:</strong> ${escClaim(s.status)}</div>`;
@@ -2156,7 +2616,7 @@ function renderGroupedSuggestions(){
     }
     const selectable=(s.status==='Sugerencia' && !(x.kind==='smart' && s.type==='url'));
     const checkbox=selectable?`<input class="suggestion-check" type="checkbox" data-kind="${x.kind}" data-index="${x.i}" aria-label="Seleccionar sugerencia SKU ${sku}">`:'';
-    if(x.kind==='smart' && s.type!=='url' && s.status==='Aplicado'){actions=`<div class="ai-actions"><button onclick="editParisSuggestion(${x.i})">✎ Editar</button><button onclick="deleteParisSuggestion(${x.i})">× Eliminar</button></div>`;}
+    if(x.kind==='smart' && s.type!=='url' && s.type!=='seatclaim' && s.status==='Aplicado'){actions=`<div class="ai-actions"><button onclick="editParisSuggestion(${x.i})">✎ Editar</button><button onclick="deleteParisSuggestion(${x.i})">× Eliminar</button></div>`;}
     return `<div class="suggestion-mini-card"><div class="suggestion-mini-top"><div class="suggestion-mini-select">${checkbox}<span class="suggestion-mini-sku">SKU ${sku}</span></div>${copy}</div><div style="margin-top:8px;">${body}</div>${actions}</div>`;
   }
 
@@ -2350,6 +2810,7 @@ function applyClaimSuggestion(i, silent=false){
     return false;
   }
   row[field]=s.label;
+  parisActivateSeatClaim(row,s.label);
   s.status='Aplicado';
   s.appliedField=field;
   if(!silent){
@@ -2420,108 +2881,56 @@ function evaluateSkuQuality(row,rowIndex){
   return {level,reasons};
 }
 
-function setQualityFilter(filter){
-  qualityUI.filter=filter;
-  qualityUI.page=1;
-  renderQualityPanel();
-}
-function setQualitySearch(value){
-  qualityUI.search=String(value||'');
-  qualityUI.page=1;
-  renderQualityPanel();
-}
-function setQualityPage(delta){
-  qualityUI.page=Math.max(1,qualityUI.page+delta);
-  renderQualityPanel();
-}
-function toggleQualityRow(index){
-  index=Number(index);
-  if(qualityUI.expanded.has(index)) qualityUI.expanded.delete(index);
-  else qualityUI.expanded.add(index);
-  renderQualityPanel();
-}
-
-function renderQualityPanel(){
+let qualityFilter='all';
+let qualitySearch='';
+function setQualityFilter(value){qualityFilter=value;renderQualityPanel();}
+function setQualitySearch(value){qualitySearch=String(value||'').trim().toLowerCase();renderQualityPanel(true);}
+function renderQualityPanel(preserveFocus=false){
   const panel=document.getElementById('qualityPanel');
   if(!panel) return;
   if(!excelRows.length){panel.style.display='none';panel.innerHTML='';return;}
-
-  const rows=excelRows.map((row,i)=>({index:i,sku:get(row,['SKU','Sku','sku','RefId','RefID']),q:evaluateSkuQuality(row,i)}));
-  const counts={green:0,yellow:0,red:0};
-  rows.forEach(x=>counts[x.q.level]++);
-
+  const rows=excelRows.map((row,i)=>({row,i,sku:String(get(row,['SKU'])||''),q:evaluateSkuQuality(row,i)}));
+  const counts={green:0,yellow:0,red:0};rows.forEach(x=>counts[x.q.level]++);
   const overall=counts.red?'red':(counts.yellow?'yellow':'green');
-  const labels={green:'Listo para publicar',yellow:'Requiere revisión',red:'Requiere corrección'};
-  const status={green:'Listo',yellow:'Revisar',red:'Corrección'};
-
-  let filtered=rows.filter(x=>
-    qualityUI.filter==='all' ||
-    (qualityUI.filter==='attention' && x.q.level!=='green') ||
-    x.q.level===qualityUI.filter
-  );
-
-  const search=qualityUI.search.trim().toLowerCase();
-  if(search){
-    filtered=filtered.filter(x=>
-      String(x.sku||'').toLowerCase().includes(search) ||
-      x.q.reasons.join(' ').toLowerCase().includes(search)
-    );
-  }
-
-  const total=filtered.length;
-  const pages=Math.max(1,Math.ceil(total/qualityUI.pageSize));
-  qualityUI.page=Math.min(qualityUI.page,pages);
-  const from=(qualityUI.page-1)*qualityUI.pageSize;
-  const shown=filtered.slice(from,from+qualityUI.pageSize);
-  const esc=(v)=>escClaim(String(v??''));
-  const filterButton=(key,label,count)=>`<button type="button" class="quality-filter ${qualityUI.filter===key?'active':''}" onclick="setQualityFilter('${key}')">${label} ${count}</button>`;
-
+  const label={green:'Listo para publicar',yellow:'Requiere revisión',red:'Requiere corrección'}[overall];
+  const dot={green:'quality-green',yellow:'quality-yellow',red:'quality-red'}[overall];
+  const visible=rows.filter(x=>(qualityFilter==='all'||(qualityFilter==='attention'?x.q.level!=='green':x.q.level===qualityFilter))&&(!qualitySearch||x.sku.toLowerCase().includes(qualitySearch)));
+  const filters=[['attention','Atención',rows.filter(x=>x.q.level!=='green').length],['yellow','🟠 Revisar',counts.yellow],['red','🔴 Corrección',counts.red],['green','🟢 OK',counts.green],['all','Todos',rows.length]];
+  const qualityDetailsWasOpen = panel.querySelector('.quality-details')?.open ?? false;
   panel.style.display='block';
-  panel.innerHTML=`
-    <div class="quality-head"><h2>🚦 Semáforo de calidad</h2><div class="quality-overall"><span class="quality-dot quality-${overall}"></span>${labels[overall]}</div></div>
-    <div class="quality-summary">
-      <span class="quality-pill"><span class="quality-dot quality-green"></span>${counts.green} OK</span>
-      <span class="quality-pill"><span class="quality-dot quality-yellow"></span>${counts.yellow} por revisar</span>
-      <span class="quality-pill"><span class="quality-dot quality-red"></span>${counts.red} con corrección</span>
-    </div>
-    <details class="quality-details">
-      <summary>Ver detalle por SKU</summary>
-      <div class="quality-toolbar">
-        <div class="quality-filters">
-          ${filterButton('attention','Atención',counts.yellow+counts.red)}
-          ${filterButton('yellow','🟠 Revisar',counts.yellow)}
-          ${filterButton('red','🔴 Corrección',counts.red)}
-          ${filterButton('green','🟢 OK',counts.green)}
-          ${filterButton('all','Todos',rows.length)}
-        </div>
-        <input class="quality-search" type="search" placeholder="🔎 Buscar SKU" value="${esc(qualityUI.search)}" oninput="setQualitySearch(this.value)">
-      </div>
-      <div class="quality-list">
-        ${shown.length ? shown.map(x=>{
-          const expanded=qualityUI.expanded.has(x.index);
-          const first=x.q.reasons[0]||'';
-          return `<div class="quality-row">
-            <div class="quality-row-sku"><span class="quality-dot quality-${x.q.level}"></span> ${esc(x.sku||'—')}</div>
-            <div class="quality-row-reason">${esc(first.replace(/^[🔴🟡🟢]\s*/u,''))}${x.q.reasons.length>1?` · ${x.q.reasons.length} alertas`:''}</div>
-            <div class="quality-row-status">${status[x.q.level]} ${x.q.reasons.length>1?`<button type="button" class="quality-more" title="Ver detalle" onclick="toggleQualityRow(${x.index})">${expanded?'▴':'▾'}</button>`:''}</div>
-            ${expanded?`<div class="quality-expanded">${x.q.reasons.map(r=>`<div>${esc(r)}</div>`).join('')}</div>`:''}
-          </div>`;
-        }).join('') : `<div class="quality-empty">No hay SKU para este filtro.</div>`}
-      </div>
-      <div class="quality-footer">
-        <span>Mostrando ${total?from+1:0}–${Math.min(from+qualityUI.pageSize,total)} de ${total} SKU</span>
-        ${pages>1?`<div class="quality-page-actions"><button type="button" onclick="setQualityPage(-1)" ${qualityUI.page<=1?'disabled':''}>‹ Anterior</button><span style="padding:5px 4px">${qualityUI.page} / ${pages}</span><button type="button" onclick="setQualityPage(1)" ${qualityUI.page>=pages?'disabled':''}>Siguiente ›</button></div>`:''}
-      </div>
-    </details>`;
+  panel.innerHTML=`<div class="quality-head"><h2>🚦 Semáforo de calidad</h2><div class="quality-overall"><span class="quality-dot ${dot}"></span>${label}</div></div>
+  <div class="quality-summary"><span class="quality-pill"><span class="quality-dot quality-green"></span>${counts.green} OK</span><span class="quality-pill"><span class="quality-dot quality-yellow"></span>${counts.yellow} por revisar</span><span class="quality-pill"><span class="quality-dot quality-red"></span>${counts.red} con corrección</span></div>
+  <details class="quality-details" ${qualityDetailsWasOpen ? 'open' : ''}><summary>Ver detalle por SKU</summary>
+  <div class="quality-filter-bar"><div class="quality-filter-actions">${filters.map(([id,name,count])=>`<button type="button" class="quality-filter-btn ${qualityFilter===id?'active':''}" onclick="setQualityFilter('${id}')">${name} ${count}</button>`).join('')}</div><input id="qualitySkuSearch" type="search" placeholder="🔎 Buscar SKU" value="${escClaim(qualitySearch)}" oninput="setQualitySearch(this.value)" aria-label="Buscar SKU"></div>
+  <div class="quality-grid">${visible.map(x=>`<div class="quality-sku"><div class="quality-sku-top"><strong><span class="quality-dot ${x.q.level==='green'?'quality-green':x.q.level==='yellow'?'quality-yellow':'quality-red'}"></span> ${escClaim(x.sku||'—')}</strong><span class="quality-reasons-inline">${escClaim(x.q.reasons.map(r=>r.replace(/^[🟢🟡🔴]\s*/u,'')).join(' · '))}</span><button type="button" class="quality-review-btn" onclick="reviewQualitySku(${x.i})">Revisar</button></div></div>`).join('')||'<div class="quality-empty">No hay SKU para este filtro.</div>'}</div>
+  <div class="quality-footer">Mostrando ${visible.length?1:0}–${visible.length} de ${rows.length} SKU</div></details>`;
+  if(preserveFocus){const inp=document.getElementById('qualitySkuSearch');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
+}
+function reviewQualitySku(index){
+  updateTables();
+  const card=document.querySelector('[data-quality-sku-index="'+index+'"]')||document.querySelector('[data-sku-index="'+index+'"]');
+  if(card){card.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  const viewport=document.getElementById('previewViewport');if(viewport)viewport.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+let parisLayoutColumns = 2;
+function setParisLayout(columns){
+  parisLayoutColumns = [1,2,3].includes(columns) ? columns : 2;
+  const wrapper = document.querySelector('#tablesContainer .easy-ficha-wrapper');
+  if(wrapper) wrapper.setAttribute('data-paris-layout',String(parisLayoutColumns));
+  [1,2,3].forEach(n=>{
+    const btn=document.getElementById('parisLayout'+n);
+    if(btn){btn.classList.toggle('active',n===parisLayoutColumns);btn.setAttribute('aria-pressed',String(n===parisLayoutColumns));}
+  });
+}
 function updateTables() {
   const container = document.getElementById('tablesContainer');
   if (!excelRows.length) {
     container.innerHTML = '<p>❌ No hay datos cargados. Por favor sube un Excel primero.</p>';
     return;
   }
-  let html = '<div class="easy-ficha-wrapper" style="display:flex; flex-wrap:wrap; gap:20px;">';
+  const openDifEditors = new Set(Array.from(container.querySelectorAll('details[data-paris-dif-editor]')).filter(el=>el.open).map(el=>el.getAttribute('data-paris-dif-editor')));
+  let html = `<div class="easy-ficha-wrapper" data-paris-layout="${parisLayoutColumns}">`;
 html = cleanForCSV(html);
   excelRows.forEach((row, index) => {
     const sku = get(row, ['SKU']);
@@ -2537,7 +2946,7 @@ const imgMarca = buildMarcaUrl(_rawMarca);
     const imgMaterial = get(row, ['URL Imagen Material']);
     const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
     const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
-    const videoUrl = getFirstNonEmpty(row, ['VideoYouTube','Video YouTube','YouTube']);
+    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
     const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
@@ -2549,32 +2958,11 @@ const cta = metaDescripcion.trim(); // sin fallback
     const embedUrl = cleanYoutubeUrl(videoUrl);
     let botonHTML = '';
     
-    // --- Imágenes diferenciadoras (Excel: Imagen diferenciadora 1/2/3) ---
-    const dif1Name = get(row, ['Imagen diferenciadora 1','Imagen diferenciadora 1 ']);
-    const dif2Name = get(row, ['Imagen diferenciadora 2','Imagen diferenciadora 2 ']);
-    const dif3Name = get(row, ['Imagen diferenciadora 3','Imagen diferenciadora 3 ']);
-
-    const dif1 = dif1Name ? buildDifUrl(dif1Name) : '';
-    const dif2 = dif2Name ? buildDifUrl(dif2Name) : '';
-    const dif3 = dif3Name ? buildDifUrl(dif3Name) : '';
-
-    // Bloque 1: debajo de la descripción corta
-    let difBlock1 = '';
-    if (dif1) {
-      difBlock1 = `<div style='width:100%;max-width:100%;margin:16px 0;overflow:hidden;'><img src='${dif1}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'></div>`;
-    }
-
-    // Bloque 2-3: debajo del botón (dos columnas)
-        // Bloque 2-3: debajo del botón (dos columnas)
-    let difBlock23 = '';
-    if (dif2 || dif3) {
-      difBlock23 = `<div style='width:100%;max-width:100%;margin:10px 0 0 0;overflow:hidden;'>${dif2 ? `<img src='${dif2}' alt='' style='display:block;width:100%;max-width:100%;height:auto;margin-bottom:12px;border-radius:10px;'>` : ''}${dif3 ? `<img src='${dif3}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'>` : ''}</div>`;
-    }
-    
-    
+    const difGroups = parisDifRender(index, true);
+    const hayImagenDiferenciadora = parisDifList(index).length > 0;
     botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
-    const hayImagenDiferenciadora = !!(dif1 || dif2 || dif3);
-    html += `<div style='flex:1 1 400px; margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
+
+    html += `<div class='paris-ficha-card' style='margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div style='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;'>
   <div class='visual-id' style='margin-bottom:0;'>Ficha N° ${index + 1}</div>
   <label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#344054;cursor:pointer;'>
@@ -2583,30 +2971,33 @@ const cta = metaDescripcion.trim(); // sin fallback
 </div>
 <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
 ${buildParisFichaTools(index)}
+${parisDifEditor(index)}
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${renderNotasProductoChips(row)}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 0 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${difGroups.beforeDescription}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${difGroups.afterDescription}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
 ${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
-${difBlock1}
-${difBlock23}
+${difGroups.default}${difGroups.beforeStrip}
 ${!hayImagenDiferenciadora ? botonHTML : ''}`;
-    html += buildParisTechnicalStrip(row,index,true,!!botonHTML);
+    const seatStrip=buildParisSeatBenefits(row,index,true);
+    html += seatStrip || buildParisTechnicalStrip(row,index,true);
+    html += difGroups.afterStrip + difGroups.beforeVideo;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
+    html += difGroups.end;
     html += `</div>`;
   
-    /* divider after each row of 3 cards (visual only) */
-    if (((index + 1) % 3) === 0 && index < excelRows.length - 1) {
-      html += `<div class="row-divider"></div>`;
-    }
+
 });
   html += '</div>';
   container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
+  container.querySelectorAll('details[data-paris-dif-editor]').forEach(el=>{if(openDifEditors.has(el.getAttribute('data-paris-dif-editor')))el.open=true;});
   renderQualityPanel();
   updateExportSelectionCount();
 }
@@ -2629,7 +3020,7 @@ function exportHtmlToExcel(mode = 'all') {
     const imgMaterial = get(row, ['URL Imagen Material']);
     const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
     const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
-    const videoUrl = getFirstNonEmpty(row, ['VideoYouTube','Video YouTube','YouTube']);
+    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
     const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
@@ -2640,49 +3031,40 @@ function exportHtmlToExcel(mode = 'all') {
 const cta = metaDescripcion.trim(); // sin fallback
     const embedUrl = cleanYoutubeUrl(videoUrl);
     let botonHTML = '';
-    // --- Imágenes diferenciadoras (Excel: Imagen diferenciadora 1/2/3) ---
-    const dif1Name = get(row, ['Imagen diferenciadora 1','Imagen diferenciadora 1 ']);
-    const dif2Name = get(row, ['Imagen diferenciadora 2','Imagen diferenciadora 2 ']);
-    const dif3Name = get(row, ['Imagen diferenciadora 3','Imagen diferenciadora 3 ']);
-
-    const dif1 = dif1Name ? buildDifUrl(dif1Name) : '';
-    const dif2 = dif2Name ? buildDifUrl(dif2Name) : '';
-    const dif3 = dif3Name ? buildDifUrl(dif3Name) : '';
-    console.log('DIF URLs:', dif1, dif2, dif3);
-
-    let difBlock1 = '';
-if (dif1) {
-  difBlock1 = `<div style='width:100%;max-width:100%;margin:16px 0;overflow:hidden;'><img src='${dif1}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'></div>`;
-}
-
-let difBlock23 = '';
-if (dif2 || dif3) {
-  difBlock23 = `<div style='width:100%;max-width:100%;margin:10px 0 0 0;overflow:hidden;'>${dif2 ? `<img src='${dif2}' alt='' style='display:block;width:100%;max-width:100%;height:auto;margin-bottom:12px;border-radius:10px;'>` : ''}${dif3 ? `<img src='${dif3}' alt='' style='display:block;width:100%;max-width:100%;height:auto;border-radius:10px;'>` : ''}</div>`;
-}
-
-    
+    const difGroups = parisDifRender(rowIndex, false);
+    const hayImagenDiferenciadora = parisDifList(rowIndex).length > 0;
     botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
-    const hayImagenDiferenciadora = !!(dif1 || dif2 || dif3);
+
     let html = `<div style='margin-bottom:25px;'>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
 ${cta ? formatMetaDescripcion(cta) : ''}
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${renderNotasProductoChips(row)}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 0 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${difGroups.beforeDescription}
+${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${difGroups.afterDescription}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
 ${renderCuidadosUsoChips(row)}
 ${hayImagenDiferenciadora ? botonHTML : ''}
-${difBlock1}
-${difBlock23}
+${difGroups.default}${difGroups.beforeStrip}
 ${!hayImagenDiferenciadora ? botonHTML : ''}`;
     html = cleanForCSV(html);
-    html += buildParisTechnicalStrip(row,null,false,!!botonHTML);
+    const seatStrip=buildParisSeatBenefits(row);
+    html += seatStrip || buildParisTechnicalStrip(row,null,false);
+    html += difGroups.afterStrip + difGroups.beforeVideo;
     if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
+    html += difGroups.end;
     html += `</div>`;
     html = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
-    data.push([sku, cleanForCSV(html)]);
+    const excelHtml = cleanForCSV(html);
+    // Excel supports at most 32,767 characters per cell. Never silently truncate HTML.
+    if (excelHtml.length > 32767) {
+      alert('El SKU ' + sku + ' supera el límite de 32.767 caracteres por celda de Excel (' + excelHtml.length + '). No se exportó el archivo para evitar pérdida de contenido.');
+      throw new Error('HTML excede el límite de Excel para SKU ' + sku);
+    }
+    data.push([sku, excelHtml]);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -2693,9 +3075,11 @@ ${!hayImagenDiferenciadora ? botonHTML : ''}`;
 function limpiarTodo() {
   document.getElementById('importFile').value = '';
   document.getElementById('tablesContainer').innerHTML = '<p>📂 Sin datos cargados.</p>';
+  Object.keys(parisDifEdits).forEach(k=>delete parisDifEdits[k]);
   excelRows = [];
   exportSelection.clear();
   updateExportSelectionCount();
+  qualityFilter='all';qualitySearch='';
   claimSuggestions = [];
   smartSuggestions = [];
   parisSuggestionBaselines.clear();
