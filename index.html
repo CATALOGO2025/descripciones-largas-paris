@@ -634,9 +634,14 @@ function formatDescripcionHTML(textoPlano) {
 }
 function formatMetaDescripcion(texto) {
     if (!texto) return '';
+    const value = String(texto).trim();
+    if (!value) return '';
+    // La edición directa guarda la descripción corta como HTML. No volver a
+    // envolver un <p> existente: los párrafos anidados producen una caja gris vacía.
+    if (/<\/?(?:p|div|h[1-6]|ul|ol|li)\b/i.test(value)) return value;
     const style = "margin:6px 0; background:#f4f6f7; color:#333; font-size:14px; padding:12px 20px; border-radius:6px; font-weight:normal; line-height:1.6;";
-    const bloques = String(texto).trim().split(/\r?\n\r?\n/);
-    return bloques.map(b => `<p style='${style}'>${b.replace(/\r?\n/g, '<br>')}</p>`).join('');
+    const bloques = value.split(/\r?\n\r?\n/);
+    return bloques.filter(b => b.trim()).map(b => `<p style='${style}'>${b.replace(/\r?\n/g, '<br>')}</p>`).join('');
 }
 function cleanYoutubeUrl(url) {
   const value=String(url||'').trim();if(!value)return '';
@@ -931,6 +936,16 @@ img { max-width: 100%; height: auto; }
 @media(max-width:720px){#tablesContainer .easy-ficha-wrapper,#tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{grid-template-columns:minmax(0,1fr)!important}}
 .preview-viewport.preview-mobile #tablesContainer .easy-ficha-wrapper,.preview-viewport.preview-mobile #tablesContainer .easy-ficha-wrapper[data-paris-layout="3"]{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
 </style>
+<style>
+/* Icono contextual de edición: compacto, visible y accesible. */
+.paris-edit-pencil{display:inline-flex!important;align-items:center;justify-content:center;flex:0 0 26px;width:26px;height:26px;min-width:26px;padding:0!important;margin:0 2px;border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;color:#64748b!important;box-shadow:none!important;cursor:pointer;vertical-align:middle;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .15s ease}
+.paris-edit-pencil{visibility:visible!important;opacity:1!important;font-size:17px!important;position:relative!important;z-index:2!important}
+.paris-edit-pencil:hover{background:#eaf3fc!important;color:#2563a6!important;border-color:#c8dff5!important}
+.paris-edit-pencil:focus-visible{outline:2px solid #2563a6!important;outline-offset:2px}
+.paris-edit-pencil:active{transform:scale(.94)}
+.paris-edit-pencil.is-editing{background:#dbeafe!important;border-color:#93c5fd!important;color:#1d4ed8!important}
+@media (hover:none){.paris-edit-pencil{background:#f1f5f9!important;border-color:#e2e8f0!important}}
+</style>
 </head>
 <body>
 <div class="header" style="background:#000273;"><img src="https://cl-paris-media-hub.ecomm.cencosud.com/files/logos_paris/logos_web/Header_Brand_125_60x60.svg?v=1" alt="Paris" style="max-height:40px;height:auto;width:auto;display:block;"/><span>Creador de Descripciones Largas</span></div>
@@ -1017,7 +1032,7 @@ function importExcel() {
     const workbook = XLSX.read(data, {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     excelRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
-    exportSelection.clear(); updateExportSelectionCount();
+    exportSelection.clear(); parisEditedDescriptions.clear(); updateExportSelectionCount();
     if (!excelRows.length) return alert('❌ No se encontraron filas en el Excel.');
 
     parisSuggestionBaselines.clear();
@@ -1437,7 +1452,9 @@ function removeAppliedParisSuggestions(rowIndex){
   rowIndex=Number(rowIndex); const base=parisSuggestionBaselines.get(rowIndex); if(base) excelRows[rowIndex]=JSON.parse(JSON.stringify(base));
   smartSuggestions=smartSuggestions.filter(s=>!(s.rowIndex===rowIndex&&s.status==='Aplicado'));
   claimSuggestions=claimSuggestions.filter(s=>!(s.rowIndex===rowIndex&&s.status==='Aplicado'));
-  detectAllSuggestions(); updateTables();
+  // No recalcular sugerencias de todas las fichas: eso borra los estados
+  // "Aplicado" de otros SKU. Actualizar solamente la vista.
+  renderGroupedSuggestions(); updateTables();
 }
 function buildParisManualControls(rowIndex){
   const smartEntries=smartSuggestions.map((s,i)=>({kind:'smart',s,i})).filter(x=>x.s.rowIndex===Number(rowIndex)&&x.s.manual&&x.s.status==='Aplicado'&&!['dimensions','material','weight'].includes(x.s.type));
@@ -1627,13 +1644,142 @@ function parisDifEditor(idx){
  </div></details>`;
 }
 
-function buildParisFichaTools(rowIndex){
+
+
+
+// Edición contextual de nombre, descripción corta y larga.
+const parisEditedDescriptions = new Map();
+const parisEditKeys={name:['Nombre del Producto','Nombre Producto','Producto'],short:['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'],long:['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']};
+function parisDescriptionHtml(row,index){return parisEditedDescriptions.has(index)?parisEditedDescriptions.get(index):formatDescripcionHTML(get(row,parisEditKeys.long));}
+function parisEditPencil(index,field){const label=field==='name'?'nombre':field==='short'?'descripción corta':'descripción larga';return `<button type="button" class="paris-edit-pencil" id="parisEditPencil_${index}_${field}" title="Editar ${label}" aria-label="Editar ${label}" aria-pressed="false" onclick="parisOpenAllTextEditors(${index})"><span aria-hidden="true" style="display:inline-block!important;font-size:17px!important;font-weight:700!important;line-height:1!important;color:inherit!important;visibility:visible!important;opacity:1!important;">✎</span></button>`;}
+function parisEditorMarkup(index,field){return `<span id="parisTextPanel_${index}_${field}" hidden style="display:none;gap:5px;align-items:center;flex-wrap:wrap;margin:4px 0;"><button type="button" onmousedown="event.preventDefault()" onclick="parisToggleStrong(${index},'${field}')">Negrita</button><button type="button" onmousedown="event.preventDefault()" onclick="parisToggleH3(${index},'${field}')">H3</button><button type="button" onclick="parisSaveText(${index},'${field}')">Guardar</button><button type="button" onclick="parisCancelText(${index},'${field}')">Cancelar</button></span>`;}
+const parisEditorOriginals=new Map();
+function parisOpenTextEditor(index,field){
+ const panel=document.getElementById(`parisTextPanel_${index}_${field}`),editor=document.getElementById(`parisTextEditor_${index}_${field}`);
+ if(!panel||!editor)return;
+ if(panel.style.display!=='none'){parisCancelText(index,field);return;}
+ const key=`${index}_${field}`;parisEditorOriginals.set(key,editor.innerHTML);
+ panel.hidden=false;panel.style.display='inline-flex';const pencil=document.getElementById(`parisEditPencil_${index}_${field}`);if(pencil){pencil.classList.add('is-editing');pencil.setAttribute('aria-pressed','true');}editor.setAttribute('contenteditable','true');editor.style.outline='1px dashed #94a3b8';editor.style.outlineOffset='3px';editor.focus();
+}
+function parisToggleH3(index,field){
+ const editor=document.getElementById(`parisTextEditor_${index}_${field}`);if(!editor)return;
+ const selection=window.getSelection();if(!selection||!selection.rangeCount)return;
+ const range=selection.getRangeAt(0);if(!editor.contains(range.commonAncestorContainer))return;
+ let node=selection.anchorNode;if(node.nodeType===3)node=node.parentElement;
+ let block=node.closest('h3,p,h2');
+ if(block&&!editor.contains(block))block=null;
+ if(!block){
+  // Texto sin contenedor de párrafo: aplicar formato al bloque actual.
+  document.execCommand('formatBlock',false,'h3');
+ }else{
+  const replacement=document.createElement(block.tagName.toLowerCase()==='h3'?'p':'h3');
+  while(block.firstChild)replacement.appendChild(block.firstChild);
+  block.replaceWith(replacement);
+  const r=document.createRange();r.selectNodeContents(replacement);r.collapse(false);selection.removeAllRanges();selection.addRange(r);
+ }
+ editor.focus();
+}
+function parisToggleStrong(index,field){
+ const editor=document.getElementById(`parisTextEditor_${index}_${field}`);if(!editor)return;
+ const sel=window.getSelection();if(!sel||!sel.rangeCount||!editor.contains(sel.getRangeAt(0).commonAncestorContainer))return;
+ document.execCommand('bold',false,null);
+ editor.querySelectorAll('b').forEach(b=>{const strong=document.createElement('strong');while(b.firstChild)strong.appendChild(b.firstChild);b.replaceWith(strong);});
+}
+function parisSaveText(index,field){
+ const editor=document.getElementById(`parisTextEditor_${index}_${field}`);if(!editor)return;
+ const row=excelRows[index];
+ if(field==='long')parisEditedDescriptions.set(index,editor.innerHTML);
+ else{
+  const keys=parisEditKeys[field];const key=keys.find(k=>Object.prototype.hasOwnProperty.call(row,k))||keys[0];
+  row[key]=field==='name'?editor.textContent.trim():field==='short'?editor.innerHTML:editor.innerHTML;
+ }
+ updateTables();
+}
+function parisCancelText(index,field){const pencil=document.getElementById(`parisEditPencil_${index}_${field}`);if(pencil){pencil.classList.remove('is-editing');pencil.setAttribute('aria-pressed','false');}const panel=document.getElementById(`parisTextPanel_${index}_${field}`),editor=document.getElementById(`parisTextEditor_${index}_${field}`);if(editor){const key=`${index}_${field}`;if(parisEditorOriginals.has(key))editor.innerHTML=parisEditorOriginals.get(key);editor.removeAttribute('contenteditable');editor.style.outline='';editor.style.outlineOffset='';}if(panel){panel.hidden=true;panel.style.display='none';}}
+
+// Un único control por ficha: activa y guarda conjuntamente los tres textos.
+function parisOpenAllTextEditors(index){
+ const fields=['name','short','long'];
+ const main=document.getElementById(`parisEditPencil_${index}_name`);
+ const active=main&&main.getAttribute('aria-pressed')==='true';
+ if(active){parisCancelAllText(index);return;}
+ fields.forEach(field=>{
+  const editor=document.getElementById(`parisTextEditor_${index}_${field}`);
+  if(!editor)return;
+  parisEditorOriginals.set(`${index}_${field}`,editor.innerHTML);
+  editor.setAttribute('contenteditable','true');
+  editor.style.outline='1px dashed #94a3b8';editor.style.outlineOffset='3px';
+ });
+ const panel=document.getElementById(`parisTextPanel_${index}_name`);
+ if(panel){panel.hidden=false;panel.style.display='inline-flex';}
+ if(main){main.classList.add('is-editing');main.setAttribute('aria-pressed','true');}
+ const first=document.getElementById(`parisTextEditor_${index}_name`);if(first)first.focus();
+}
+function parisCancelAllText(index){
+ ['name','short','long'].forEach(field=>{
+  const editor=document.getElementById(`parisTextEditor_${index}_${field}`);
+  if(!editor)return;
+  const original=parisEditorOriginals.get(`${index}_${field}`);
+  if(original!==undefined)editor.innerHTML=original;
+  editor.removeAttribute('contenteditable');editor.style.outline='';editor.style.outlineOffset='';
+ });
+ const panel=document.getElementById(`parisTextPanel_${index}_name`);
+ if(panel){panel.hidden=true;panel.style.display='none';}
+ const pencil=document.getElementById(`parisEditPencil_${index}_name`);
+ if(pencil){pencil.classList.remove('is-editing');pencil.setAttribute('aria-pressed','false');}
+}
+function parisSaveAllText(index){
+ const row=excelRows[index];if(!row)return;
+ for(const field of ['name','short','long']){
+  const editor=document.getElementById(`parisTextEditor_${index}_${field}`);if(!editor)continue;
+  if(field==='long')parisEditedDescriptions.set(index,editor.innerHTML);
+  else{
+   const keys=parisEditKeys[field];const key=keys.find(k=>Object.prototype.hasOwnProperty.call(row,k))||keys[0];
+   row[key]=field==='name'?editor.textContent.trim():editor.innerHTML;
+  }
+ }
+ updateTables();
+}
+function parisAllEditorMarkup(index){return `<span id="parisTextPanel_${index}_name" hidden style="display:none;gap:5px;align-items:center;flex-wrap:wrap;margin:6px 0;"><span style="font-size:12px;color:#475569;">Selecciona texto en cualquiera de los tres campos:</span><button type="button" onmousedown="event.preventDefault()" onclick="parisFormatActiveText(${index},'strong')">Negrita</button><button type="button" onmousedown="event.preventDefault()" onclick="parisFormatActiveText(${index},'h3')">H3</button><button type="button" onmousedown="event.preventDefault()" onclick="parisFormatActiveText(${index},'list')" title="Convertir texto en lista con viñetas o quitar lista">• Lista</button><button type="button" onclick="parisSaveAllText(${index})">Guardar</button><button type="button" onclick="parisCancelAllText(${index})">Cancelar</button></span>`;}
+function parisToggleList(index,field){
+ const editor=document.getElementById(`parisTextEditor_${index}_${field}`);
+ const selection=window.getSelection();
+ if(!editor||!selection||!selection.rangeCount||!editor.contains(selection.getRangeAt(0).commonAncestorContainer))return;
+ const anchor=selection.anchorNode;
+ const parent=anchor.nodeType===3?anchor.parentElement:anchor;
+ const existing=parent.closest('ul,ol');
+ const removing=!!(existing&&editor.contains(existing));
+ // Conservar la selección al hacer clic en el botón de la barra.
+ document.execCommand('insertUnorderedList',false,null);
+ if(!removing){
+  editor.querySelectorAll('ul').forEach(ul=>{
+   ul.style.listStyleType='disc';ul.style.paddingLeft='24px';ul.style.margin='8px 0';
+   ul.querySelectorAll('li').forEach(li=>{
+    li.style.display='list-item';
+    // Quitar guiones manuales para evitar que aparezcan junto a la viñeta.
+    const first=li.firstChild;
+    if(first&&first.nodeType===3)first.textContent=first.textContent.replace(/^\s*[-–—]\s+/, '');
+    else if(first&&first.nodeType===1){const t=first.firstChild;if(t&&t.nodeType===3)t.textContent=t.textContent.replace(/^\s*[-–—]\s+/, '');}
+   });
+  });
+ }
+}
+function parisFormatActiveText(index,format){
+ const sel=window.getSelection();if(!sel||!sel.rangeCount)return;
+ const node=sel.anchorNode;
+ const field=['name','short','long'].find(f=>{const e=document.getElementById(`parisTextEditor_${index}_${f}`);return e&&node&&e.contains(node);});
+ if(!field)return;
+ if(format==='strong')parisToggleStrong(index,field);else if(format==='h3')parisToggleH3(index,field);else if(format==='list')parisToggleList(index,field);
+}
+function buildParisSuggestionButtons(rowIndex){
   const hasApplied=smartSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado')||claimSuggestions.some(s=>s.rowIndex===Number(rowIndex)&&s.status==='Aplicado');
-  return `<div class='paris-inline-tools'>
+  return `<div class='paris-inline-tools' style='margin:0;display:inline-flex;vertical-align:middle;'>
     <button type='button' class='paris-inline-btn paris-add-btn' onclick='toggleParisSuggestionForm(${Number(rowIndex)})'>＋ Agregar sugerencia</button>
     ${hasApplied?`<button type='button' class='paris-inline-btn paris-delete-btn' onclick='removeAppliedParisSuggestions(${Number(rowIndex)})'>↶ Eliminar sugerencias</button>`:''}
-  </div>
-  <div id='parisManualSuggestionForm_${Number(rowIndex)}' style='display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#fffaf4;border:1px solid #f3dfc7;border-radius:8px;'>
+  </div>`;
+}
+function buildParisFichaTools(rowIndex){
+  return `<div id='parisManualSuggestionForm_${Number(rowIndex)}' style='display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#fffaf4;border:1px solid #f3dfc7;border-radius:8px;'>
     <select onchange='updateParisManualSuggestionInput(${Number(rowIndex)})' style='font-size:12px;padding:6px 8px;border:1px solid #d0d5dd;border-radius:6px;background:#fff;'>
       <option value='unmapped'>Característica</option>
       <option value='claim'>Claim</option>
@@ -2969,16 +3115,20 @@ const cta = metaDescripcion.trim(); // sin fallback
     <input type='checkbox' style='width:16px;height:16px;accent-color:#173f5f;cursor:pointer;' ${exportSelection.has(index)?'checked':''} onchange='toggleExportSelection(${index}, this.checked)'> Exportar ficha
   </label>
 </div>
-<div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px; margin-top:6px;'>📦 SKU: ${sku}</div>
+<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;'>
+  <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px;'>📦 SKU: ${sku}</div>
+  ${buildParisSuggestionButtons(index)}
+</div>
 ${buildParisFichaTools(index)}
 ${parisDifEditor(index)}
-<h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
-${cta ? formatMetaDescripcion(cta) : ''}
+<div style='display:flex;align-items:center;gap:4px;'><h2 id='parisTextEditor_${index}_name' style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>${parisEditPencil(index,'name')}</div>${parisAllEditorMarkup(index)}
+<div style='position:relative;'><div id='parisTextEditor_${index}_short'>${cta ? (String(cta).includes('<') ? cta : formatMetaDescripcion(cta)) : ''}</div></div>
 ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${renderNotasProductoChips(row)}
 ${difGroups.beforeDescription}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+
+${(descripcionProducto && descripcionProducto.trim()) || parisEditedDescriptions.has(index) ? `<div id='parisTextEditor_${index}_long' style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${parisDescriptionHtml(row,index)}</div>` : ''}
 ${difGroups.afterDescription}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
@@ -3042,7 +3192,7 @@ ${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${img
 ${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
 ${renderNotasProductoChips(row)}
 ${difGroups.beforeDescription}
-${descripcionProducto && descripcionProducto.trim() ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${formatDescripcionHTML(descripcionProducto)}</div>` : ''}
+${(descripcionProducto && descripcionProducto.trim()) || parisEditedDescriptions.has(rowIndex) ? `<div style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${parisDescriptionHtml(row,rowIndex)}</div>` : ''}
 ${difGroups.afterDescription}
 ${renderIconosExport(iconos)}
 ${renderTecnologiasChips(row)}
