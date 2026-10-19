@@ -3006,158 +3006,9 @@ function setPreviewMode(mode){
   if(mobile) mobile.classList.toggle('active',isMobile);
 }
 
-function evaluateSkuQuality(row,rowIndex){
-  const reasons=[];
-  let level='green';
-  const name=String(get(row,['Nombre del Producto','Nombre Producto','Producto'])||'').trim();
-  const short=String(get(row,['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'])||'').trim();
-  const long=String(get(row,['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción'])||'').trim();
-  const urlIssues=smartSuggestions.filter(s=>s.rowIndex===rowIndex && s.type==='url').length;
-  const pendingUseful=claimSuggestions.filter(s=>s.rowIndex===rowIndex && s.status==='Sugerencia').length + smartSuggestions.filter(s=>s.rowIndex===rowIndex && ['technology','material','dimensions','unmapped','care'].includes(s.type) && s.status==='Sugerencia').length;
-  const red=(msg)=>{level='red'; reasons.push('🔴 '+msg);};
-  const yellow=(msg)=>{if(level!=='red') level='yellow'; reasons.push('🟡 '+msg);};
-  if(!name) red('Falta nombre del producto');
-  if(!long) red('Falta descripción larga');
-  if(urlIssues) red(urlIssues+' URL'+(urlIssues===1?'':'s')+' requiere'+(urlIssues===1?'':'n')+' revisión');
-  if(!short) yellow('Falta descripción corta');
-  else if(short.length>160) yellow('Descripción corta supera 160 caracteres ('+short.length+')');
-  if(long && normalizeSentence(long).length<120) yellow('Descripción larga con poco contenido');
-  if(pendingUseful) yellow(pendingUseful+' sugerencia'+(pendingUseful===1?'':'s')+' útil'+(pendingUseful===1?'':'es')+' pendiente'+(pendingUseful===1?'':'s'));
-  if(!reasons.length) reasons.push('🟢 Sin alertas objetivas detectadas');
-  return {level,reasons};
-}
 
-let qualityFilter='all';
-let qualitySearch='';
-function setQualityFilter(value){qualityFilter=value;renderQualityPanel();}
-function setQualitySearch(value){qualitySearch=String(value||'').trim().toLowerCase();renderQualityPanel(true);}
-function renderQualityPanel(preserveFocus=false){
-  const panel=document.getElementById('qualityPanel');
-  if(!panel) return;
-  if(!excelRows.length){panel.style.display='none';panel.innerHTML='';return;}
-  const rows=excelRows.map((row,i)=>({row,i,sku:String(get(row,['SKU'])||''),q:evaluateSkuQuality(row,i)}));
-  const counts={green:0,yellow:0,red:0};rows.forEach(x=>counts[x.q.level]++);
-  const overall=counts.red?'red':(counts.yellow?'yellow':'green');
-  const label={green:'Listo para publicar',yellow:'Requiere revisión',red:'Requiere corrección'}[overall];
-  const dot={green:'quality-green',yellow:'quality-yellow',red:'quality-red'}[overall];
-  const visible=rows.filter(x=>(qualityFilter==='all'||(qualityFilter==='attention'?x.q.level!=='green':x.q.level===qualityFilter))&&(!qualitySearch||x.sku.toLowerCase().includes(qualitySearch)));
-  const filters=[['attention','Atención',rows.filter(x=>x.q.level!=='green').length],['yellow','🟠 Revisar',counts.yellow],['red','🔴 Corrección',counts.red],['green','🟢 OK',counts.green],['all','Todos',rows.length]];
-  const qualityDetailsWasOpen = panel.querySelector('.quality-details')?.open ?? false;
-  panel.style.display='block';
-  panel.innerHTML=`<div class="quality-head"><h2>🚦 Semáforo de calidad</h2><div class="quality-overall"><span class="quality-dot ${dot}"></span>${label}</div></div>
-  <div class="quality-summary"><span class="quality-pill"><span class="quality-dot quality-green"></span>${counts.green} OK</span><span class="quality-pill"><span class="quality-dot quality-yellow"></span>${counts.yellow} por revisar</span><span class="quality-pill"><span class="quality-dot quality-red"></span>${counts.red} con corrección</span></div>
-  <details class="quality-details" ${qualityDetailsWasOpen ? 'open' : ''}><summary>Ver detalle por SKU</summary>
-  <div class="quality-filter-bar"><div class="quality-filter-actions">${filters.map(([id,name,count])=>`<button type="button" class="quality-filter-btn ${qualityFilter===id?'active':''}" onclick="setQualityFilter('${id}')">${name} ${count}</button>`).join('')}</div><input id="qualitySkuSearch" type="search" placeholder="🔎 Buscar SKU" value="${escClaim(qualitySearch)}" oninput="setQualitySearch(this.value)" aria-label="Buscar SKU"></div>
-  <div class="quality-grid">${visible.map(x=>`<div class="quality-sku"><div class="quality-sku-top"><strong><span class="quality-dot ${x.q.level==='green'?'quality-green':x.q.level==='yellow'?'quality-yellow':'quality-red'}"></span> ${escClaim(x.sku||'—')}</strong><span class="quality-reasons-inline">${escClaim(x.q.reasons.map(r=>r.replace(/^[🟢🟡🔴]\s*/u,'')).join(' · '))}</span><button type="button" class="quality-review-btn" onclick="reviewQualitySku(${x.i})">Revisar</button></div></div>`).join('')||'<div class="quality-empty">No hay SKU para este filtro.</div>'}</div>
-  <div class="quality-footer">Mostrando ${visible.length?1:0}–${visible.length} de ${rows.length} SKU</div></details>`;
-  if(preserveFocus){const inp=document.getElementById('qualitySkuSearch');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
-}
-function reviewQualitySku(index){
-  updateTables();
-  const card=document.querySelector('[data-quality-sku-index="'+index+'"]')||document.querySelector('[data-sku-index="'+index+'"]');
-  if(card){card.scrollIntoView({behavior:'smooth',block:'center'});return;}
-  const viewport=document.getElementById('previewViewport');if(viewport)viewport.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-let parisLayoutColumns = 2;
-function setParisLayout(columns){
-  parisLayoutColumns = [1,2,3].includes(columns) ? columns : 2;
-  const wrapper = document.querySelector('#tablesContainer .easy-ficha-wrapper');
-  if(wrapper) wrapper.setAttribute('data-paris-layout',String(parisLayoutColumns));
-  [1,2,3].forEach(n=>{
-    const btn=document.getElementById('parisLayout'+n);
-    if(btn){btn.classList.toggle('active',n===parisLayoutColumns);btn.setAttribute('aria-pressed',String(n===parisLayoutColumns));}
-  });
-}
-function updateTables() {
-  const container = document.getElementById('tablesContainer');
-  if (!excelRows.length) {
-    container.innerHTML = '<p>❌ No hay datos cargados. Por favor sube un Excel primero.</p>';
-    return;
-  }
-  const openDifEditors = new Set(Array.from(container.querySelectorAll('details[data-paris-dif-editor]')).filter(el=>el.open).map(el=>el.getAttribute('data-paris-dif-editor')));
-  let html = `<div class="easy-ficha-wrapper" data-paris-layout="${parisLayoutColumns}">`;
-html = cleanForCSV(html);
-  excelRows.forEach((row, index) => {
-    const sku = get(row, ['SKU']);
-    const marcaRaw = get(row, ['Descripción de la Marca','Descripcion de la Marca','Descripción Marca']);
-    const marca = String(marcaRaw || '').replace(/\u00A0/g, ' ').trim();
-    const descripcion = get(row, ['Nombre del Producto','Nombre Producto','Producto']);
-    const material = get(row, ['Material']);
-    const dimensiones = get(row, ['Dimensiones']);
-    console.log('Marca URL (build):', buildMarcaUrl);
-    const _rawMarca = cleanCell(get(row, ['URL Imagen Marca','Url Imagen Marca','Imagen de Marca','imagen de marca']));
-const imgMarca = buildMarcaUrl(_rawMarca);
-    const imgDesc = get(row, ['URL Imagen Descripción','URL Imagen Descripcion']);
-    const imgMaterial = get(row, ['URL Imagen Material']);
-    const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
-    const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
-    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
-    const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
-    const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
-    const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
-    const botonUrl2 = get(row, ['Nombre archivo descargable 2','Nombre Archivo Descargable 2','URL archivo descargable 2','URL Archivo Descargable 2']);
-    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
-    
-    const iconos = pickIconValues(row);
-const cta = metaDescripcion.trim(); // sin fallback
-    const embedUrl = cleanYoutubeUrl(videoUrl);
-    let botonHTML = '';
-    
-    const difGroups = parisDifRender(index, true);
-    const hayImagenDiferenciadora = parisDifList(index).length > 0;
-    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
-
-    html += `<div class='paris-ficha-card' style='margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
-<div style='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;'>
-  <div class='visual-id' style='margin-bottom:0;'>Ficha N° ${index + 1}</div>
-  <label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#344054;cursor:pointer;'>
-    <input type='checkbox' style='width:16px;height:16px;accent-color:#173f5f;cursor:pointer;' ${exportSelection.has(index)?'checked':''} onchange='toggleExportSelection(${index}, this.checked)'> Exportar ficha
-  </label>
-</div>
-<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;'>
-  <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px;'>📦 SKU: ${sku}</div>
-  ${buildParisSuggestionButtons(index)}
-</div>
-${buildParisFichaTools(index)}
-${parisDifEditor(index)}
-<div style='display:flex;align-items:center;gap:4px;'><h2 id='parisTextEditor_${index}_name' style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>${parisEditPencil(index,'name')}</div>${parisAllEditorMarkup(index)}
-<div style='position:relative;'><div id='parisTextEditor_${index}_short'>${cta ? (String(cta).includes('<') ? cta : formatMetaDescripcion(cta)) : ''}</div></div>
-${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
-${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
-${renderNotasProductoChips(row)}
-${difGroups.beforeDescription}
-
-${(descripcionProducto && descripcionProducto.trim()) || parisEditedDescriptions.has(index) ? `<div id='parisTextEditor_${index}_long' style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${parisDescriptionHtml(row,index)}</div>` : ''}
-${difGroups.afterDescription}
-${renderIconosExport(iconos)}
-${renderTecnologiasChips(row)}
-${renderCuidadosUsoChips(row)}
-${hayImagenDiferenciadora ? botonHTML : ''}
-${difGroups.default}${difGroups.beforeStrip}
-${!hayImagenDiferenciadora ? botonHTML : ''}`;
-    const seatStrip=buildParisSeatBenefits(row,index,true);
-    html += seatStrip || buildParisTechnicalStrip(row,index,true);
-    html += difGroups.afterStrip + difGroups.beforeVideo;
-    if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
-    html += difGroups.end;
-    html += `</div>`;
-  
-
-});
-  html += '</div>';
-  container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
-  container.querySelectorAll('details[data-paris-dif-editor]').forEach(el=>{if(openDifEditors.has(el.getAttribute('data-paris-dif-editor')))el.open=true;});
-  renderQualityPanel();
-  updateExportSelectionCount();
-}
-function exportHtmlToExcel(mode = 'all') {
-  if (!excelRows.length) return alert('❌ No hay datos cargados para exportar.');
-  const selectedMode = mode === 'selected';
-  if (selectedMode && !exportSelection.size) return alert('☑️ Selecciona al menos una ficha para exportar.');
-  const data = [['SKU', 'Descripción Larga/Emocional']];
-  excelRows.forEach((row, rowIndex) => {
-    if (selectedMode && !exportSelection.has(rowIndex)) return;
+const MAX_HTML_QUALITY_CHARS = 18000;
+function buildExportHtmlForSku(row, rowIndex) {
     const sku = get(row, ['SKU']);
     const marcaRaw = get(row, ['Descripción de la Marca','Descripcion de la Marca','Descripción Marca']);
     const marca = String(marcaRaw || '').replace(/\u00A0/g, ' ').trim();
@@ -3209,6 +3060,172 @@ ${!hayImagenDiferenciadora ? botonHTML : ''}`;
     html += `</div>`;
     html = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
     const excelHtml = cleanForCSV(html);
+    return excelHtml;
+}
+function evaluateSkuQuality(row,rowIndex){
+  const reasons=[];
+  let level='green';
+  const name=String(get(row,['Nombre del Producto','Nombre Producto','Producto'])||'').trim();
+  const short=String(get(row,['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta'])||'').trim();
+  const long=String(get(row,['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción'])||'').trim();
+  const urlIssues=smartSuggestions.filter(s=>s.rowIndex===rowIndex && s.type==='url').length;
+  const pendingUseful=claimSuggestions.filter(s=>s.rowIndex===rowIndex && s.status==='Sugerencia').length + smartSuggestions.filter(s=>s.rowIndex===rowIndex && ['technology','material','dimensions','unmapped','care'].includes(s.type) && s.status==='Sugerencia').length;
+  const red=(msg)=>{level='red'; reasons.push('🔴 '+msg);};
+  const yellow=(msg)=>{if(level!=='red') level='yellow'; reasons.push('🟡 '+msg);};
+  if(!name) red('Falta nombre del producto');
+  if(!long) red('Falta descripción larga');
+  if(urlIssues) red(urlIssues+' URL'+(urlIssues===1?'':'s')+' requiere'+(urlIssues===1?'':'n')+' revisión');
+  if(!short) yellow('Falta descripción corta');
+  else if(short.length>160) yellow('Descripción corta supera 160 caracteres ('+short.length+')');
+  if(long && normalizeSentence(long).length<120) yellow('Descripción larga con poco contenido');
+  if(pendingUseful) yellow(pendingUseful+' sugerencia'+(pendingUseful===1?'':'s')+' útil'+(pendingUseful===1?'':'es')+' pendiente'+(pendingUseful===1?'':'s'));
+  try {
+    const htmlLength=buildExportHtmlForSku(row,rowIndex).length;
+    if(htmlLength>MAX_HTML_QUALITY_CHARS) red('HTML excede 18.000 caracteres: '+htmlLength.toLocaleString('es-CL')+' / 18.000 (+'+(htmlLength-MAX_HTML_QUALITY_CHARS).toLocaleString('es-CL')+')');
+  } catch(error) { yellow('No fue posible verificar extensión del HTML exportable'); console.warn('Conteo HTML SKU',rowIndex,error); }
+  if(!reasons.length) reasons.push('🟢 Sin alertas objetivas detectadas');
+  return {level,reasons};
+}
+
+let qualityFilter='all';
+let qualitySearch='';
+function setQualityFilter(value){qualityFilter=value;updateTables();}
+function setQualitySearch(value){qualitySearch=String(value||'').trim().toLowerCase();updateTables();const inp=document.getElementById('qualitySkuSearch');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
+function renderQualityPanel(preserveFocus=false){
+  const panel=document.getElementById('qualityPanel');
+  if(!panel) return;
+  if(!excelRows.length){panel.style.display='none';panel.innerHTML='';return;}
+  const rows=excelRows.map((row,i)=>({row,i,sku:String(get(row,['SKU'])||''),q:evaluateSkuQuality(row,i)}));
+  const counts={green:0,yellow:0,red:0};rows.forEach(x=>counts[x.q.level]++);
+  const overall=counts.red?'red':(counts.yellow?'yellow':'green');
+  const label={green:'Listo para publicar',yellow:'Requiere revisión',red:'Requiere corrección'}[overall];
+  const dot={green:'quality-green',yellow:'quality-yellow',red:'quality-red'}[overall];
+  const visible=rows.filter(x=>(qualityFilter==='all'||(qualityFilter==='attention'?x.q.level!=='green':x.q.level===qualityFilter))&&(!qualitySearch||x.sku.toLowerCase().includes(qualitySearch)));
+  const filters=[['attention','Atención',rows.filter(x=>x.q.level!=='green').length],['yellow','🟠 Revisar',counts.yellow],['red','🔴 Corrección',counts.red],['green','🟢 OK',counts.green],['all','Todos',rows.length]];
+  const qualityDetailsWasOpen = panel.querySelector('.quality-details')?.open ?? false;
+  panel.style.display='block';
+  panel.innerHTML=`<div class="quality-head"><h2>🚦 Semáforo de calidad</h2><div class="quality-overall"><span class="quality-dot ${dot}"></span>${label}</div></div>
+  <div class="quality-summary"><span class="quality-pill"><span class="quality-dot quality-green"></span>${counts.green} OK</span><span class="quality-pill"><span class="quality-dot quality-yellow"></span>${counts.yellow} por revisar</span><span class="quality-pill"><span class="quality-dot quality-red"></span>${counts.red} con corrección</span></div>
+  <details class="quality-details" ${qualityDetailsWasOpen ? 'open' : ''}><summary>Ver detalle por SKU</summary>
+  <div class="quality-filter-bar"><div class="quality-filter-actions">${filters.map(([id,name,count])=>`<button type="button" class="quality-filter-btn ${qualityFilter===id?'active':''}" onclick="setQualityFilter('${id}')">${name} ${count}</button>`).join('')}</div><input id="qualitySkuSearch" type="search" placeholder="🔎 Buscar SKU" value="${escClaim(qualitySearch)}" oninput="setQualitySearch(this.value)" aria-label="Buscar SKU"></div>
+  <div class="quality-grid">${visible.map(x=>`<div class="quality-sku"><div class="quality-sku-top"><strong><span class="quality-dot ${x.q.level==='green'?'quality-green':x.q.level==='yellow'?'quality-yellow':'quality-red'}"></span> ${escClaim(x.sku||'—')}</strong><span class="quality-reasons-inline">${escClaim(x.q.reasons.map(r=>r.replace(/^[🟢🟡🔴]\s*/u,'')).join(' · '))}</span><button type="button" class="quality-review-btn" onclick="reviewQualitySku(${x.i})">Revisar</button></div></div>`).join('')||'<div class="quality-empty">No hay SKU para este filtro.</div>'}</div>
+  <div class="quality-footer">Mostrando ${visible.length?1:0}–${visible.length} de ${rows.length} SKU</div></details>`;
+  if(preserveFocus){const inp=document.getElementById('qualitySkuSearch');if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}}
+}
+function reviewQualitySku(index){
+  updateTables();
+  const card=document.querySelector('[data-quality-sku-index="'+index+'"]')||document.querySelector('[data-sku-index="'+index+'"]');
+  if(card){card.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  const viewport=document.getElementById('previewViewport');if(viewport)viewport.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+let parisLayoutColumns = 2;
+function setParisLayout(columns){
+  parisLayoutColumns = [1,2,3].includes(columns) ? columns : 2;
+  const wrapper = document.querySelector('#tablesContainer .easy-ficha-wrapper');
+  if(wrapper) wrapper.setAttribute('data-paris-layout',String(parisLayoutColumns));
+  [1,2,3].forEach(n=>{
+    const btn=document.getElementById('parisLayout'+n);
+    if(btn){btn.classList.toggle('active',n===parisLayoutColumns);btn.setAttribute('aria-pressed',String(n===parisLayoutColumns));}
+  });
+}
+function updateTables() {
+  const container = document.getElementById('tablesContainer');
+  if (!excelRows.length) {
+    container.innerHTML = '<p>❌ No hay datos cargados. Por favor sube un Excel primero.</p>';
+    return;
+  }
+  const openDifEditors = new Set(Array.from(container.querySelectorAll('details[data-paris-dif-editor]')).filter(el=>el.open).map(el=>el.getAttribute('data-paris-dif-editor')));
+  let html = `<div class="easy-ficha-wrapper" data-paris-layout="${parisLayoutColumns}">`;
+html = cleanForCSV(html);
+  excelRows.forEach((row, index) => {
+    const sku = get(row, ['SKU']);
+    const skuQuality = evaluateSkuQuality(row,index);
+    if(qualityFilter!=='all' && (qualityFilter==='attention' ? skuQuality.level==='green' : skuQuality.level!==qualityFilter)) return;
+    if(qualitySearch && !String(sku||'').toLowerCase().includes(qualitySearch)) return;
+    let htmlLengthForBadge=null;
+    try { htmlLengthForBadge=buildExportHtmlForSku(row,index).length; } catch(e) { console.warn('Conteo de HTML para ficha',index,e); }
+    const htmlTooLong=(htmlLengthForBadge!==null && htmlLengthForBadge>MAX_HTML_QUALITY_CHARS) || skuQuality.reasons.some(reason=>reason.includes('HTML excede 18.000 caracteres'));
+    const marcaRaw = get(row, ['Descripción de la Marca','Descripcion de la Marca','Descripción Marca']);
+    const marca = String(marcaRaw || '').replace(/\u00A0/g, ' ').trim();
+    const descripcion = get(row, ['Nombre del Producto','Nombre Producto','Producto']);
+    const material = get(row, ['Material']);
+    const dimensiones = get(row, ['Dimensiones']);
+    console.log('Marca URL (build):', buildMarcaUrl);
+    const _rawMarca = cleanCell(get(row, ['URL Imagen Marca','Url Imagen Marca','Imagen de Marca','imagen de marca']));
+const imgMarca = buildMarcaUrl(_rawMarca);
+    const imgDesc = get(row, ['URL Imagen Descripción','URL Imagen Descripcion']);
+    const imgMaterial = get(row, ['URL Imagen Material']);
+    const imgDimensiones = get(row, ['URL Imagen Dimensiones']);
+    const descripcionProducto = get(row, ['Descripción larga','Descripcion larga','Descripción Larga','Descripcion Larga','Descripción']);
+    const videoUrl = get(row, ['VideoYouTube','Video YouTube','YouTube']);
+    const metaDescripcion = get(row, ['Meta Descripción','Meta Descripcion','Descripción corta','Descripcion corta']);
+    const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
+    const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
+    const botonUrl2 = get(row, ['Nombre archivo descargable 2','Nombre Archivo Descargable 2','URL archivo descargable 2','URL Archivo Descargable 2']);
+    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
+    
+    const iconos = pickIconValues(row);
+const cta = metaDescripcion.trim(); // sin fallback
+    const embedUrl = cleanYoutubeUrl(videoUrl);
+    let botonHTML = '';
+    
+    const difGroups = parisDifRender(index, true);
+    const hayImagenDiferenciadora = parisDifList(index).length > 0;
+    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
+
+    html += `<div class='paris-ficha-card' data-quality-sku-index='${index}' style='margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
+<div style='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;'>
+  <div style='display:inline-flex;align-items:center;gap:8px;'><div class='visual-id' style='margin-bottom:0;'>Ficha N° ${index + 1}</div>${htmlTooLong?`<span style='display:inline-block !important;width:13px !important;height:13px !important;min-width:13px;border-radius:50% !important;background:#d92d20 !important;color:#d92d20 !important;font-size:9px !important;line-height:13px !important;text-align:center !important;box-shadow:0 0 0 2px #fff,0 0 0 3px #d92d20;vertical-align:middle;flex:none;' title='Corregir: HTML exportable ${htmlLengthForBadge.toLocaleString('es-CL')} caracteres; supera el máximo de 18.000' role='img' aria-label='Corregir: HTML supera 18.000 caracteres'>●</span>`:''}</div>
+  <label style='display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#344054;cursor:pointer;'>
+    <input type='checkbox' style='width:16px;height:16px;accent-color:#173f5f;cursor:pointer;' ${exportSelection.has(index)?'checked':''} onchange='toggleExportSelection(${index}, this.checked)'> Exportar ficha
+  </label>
+</div>
+<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;'>
+  <div style='display:inline-block; background:#f4f6f7; color:#333; font-size:13px; padding:4px 10px; border-radius:6px;'>📦 SKU: ${sku}</div>
+  ${buildParisSuggestionButtons(index)}
+</div>
+${buildParisFichaTools(index)}
+${parisDifEditor(index)}
+<div style='display:flex;align-items:center;gap:4px;'><h2 id='parisTextEditor_${index}_name' style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>${parisEditPencil(index,'name')}</div>${parisAllEditorMarkup(index)}
+<div style='position:relative;'><div id='parisTextEditor_${index}_short'>${cta ? (String(cta).includes('<') ? cta : formatMetaDescripcion(cta)) : ''}</div></div>
+${imgMarca && imgMarca.trim() ? `<div style='margin:10px 0 0 0;'><img src='${imgMarca}' alt='Imagen de Marca' style='max-height:50px;height:auto;width:auto;display:block;'></div>` : ''}
+${marca && marca.trim() ? `<div style='margin-bottom:10px; font-size:14px;'>${marca}</div>` : ''}
+${renderNotasProductoChips(row)}
+${difGroups.beforeDescription}
+
+${(descripcionProducto && descripcionProducto.trim()) || parisEditedDescriptions.has(index) ? `<div id='parisTextEditor_${index}_long' style='margin:6px 0 15px 0; background:transparent; color:#000; font-size:14px; padding:0; border-radius:6px;'>${parisDescriptionHtml(row,index)}</div>` : ''}
+${difGroups.afterDescription}
+${renderIconosExport(iconos)}
+${renderTecnologiasChips(row)}
+${renderCuidadosUsoChips(row)}
+${hayImagenDiferenciadora ? botonHTML : ''}
+${difGroups.default}${difGroups.beforeStrip}
+${!hayImagenDiferenciadora ? botonHTML : ''}`;
+    const seatStrip=buildParisSeatBenefits(row,index,true);
+    html += seatStrip || buildParisTechnicalStrip(row,index,true);
+    html += difGroups.afterStrip + difGroups.beforeVideo;
+    if (embedUrl) html += `<div style='position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;max-width:100%'><iframe style='position:absolute;top:0;left:0;width:100%;height:100%;border:0' loading='lazy' referrerpolicy='strict-origin-when-cross-origin' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' height='auto' src='${embedUrl}' frameborder='0' allowfullscreen></iframe></div>`;
+    html += difGroups.end;
+    html += `</div>`;
+  
+
+});
+  html += '</div>';
+  container.innerHTML = cleanEmptyHtmlBlocks(removeEmptyFichaBlocks(html));
+  container.querySelectorAll('details[data-paris-dif-editor]').forEach(el=>{if(openDifEditors.has(el.getAttribute('data-paris-dif-editor')))el.open=true;});
+  renderQualityPanel();
+  updateExportSelectionCount();
+}
+function exportHtmlToExcel(mode = 'all') {
+  if (!excelRows.length) return alert('❌ No hay datos cargados para exportar.');
+  const selectedMode = mode === 'selected';
+  if (selectedMode && !exportSelection.size) return alert('☑️ Selecciona al menos una ficha para exportar.');
+  const data = [['SKU', 'Descripción Larga/Emocional']];
+  excelRows.forEach((row, rowIndex) => {
+    if (selectedMode && !exportSelection.has(rowIndex)) return;
+    const sku = get(row, ['SKU']);
+    const excelHtml = buildExportHtmlForSku(row, rowIndex);
     // Excel supports at most 32,767 characters per cell. Never silently truncate HTML.
     if (excelHtml.length > 32767) {
       alert('El SKU ' + sku + ' supera el límite de 32.767 caracteres por celda de Excel (' + excelHtml.length + '). No se exportó el archivo para evitar pérdida de contenido.');
