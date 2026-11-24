@@ -3026,7 +3026,8 @@ function buildExportHtmlForSku(row, rowIndex) {
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
     const botonUrl2 = get(row, ['Nombre archivo descargable 2','Nombre Archivo Descargable 2','URL archivo descargable 2','URL Archivo Descargable 2']);
-    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
+    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','Mombre archivo descargable 3','Mombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
+    const botonUrl4 = get(row, ['Nombre archivo descargable 4','Nombre Archivo Descargable 4','Mombre archivo descargable 4','Mombre Archivo Descargable 4','URL archivo descargable 4','URL Archivo Descargable 4']);
     
     const iconos = pickIconValues(row);
 const cta = metaDescripcion.trim(); // sin fallback
@@ -3034,7 +3035,7 @@ const cta = metaDescripcion.trim(); // sin fallback
     let botonHTML = '';
     const difGroups = parisDifRender(rowIndex, false);
     const hayImagenDiferenciadora = parisDifList(rowIndex).length > 0;
-    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
+    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3, botonUrl4]);
 
     let html = `<div style='margin-bottom:25px;'>
 <h2 style='margin-bottom:0; color:#2c3e50;'>${descripcion}</h2>
@@ -3163,7 +3164,8 @@ const imgMarca = buildMarcaUrl(_rawMarca);
     const botonTexto = get(row, ['Archivo Descargable (Botón)','Archivo Descargable (Boton)','Texto Botón','Texto Boton']);
     const botonUrl1 = get(row, ['Nombre archivo descargable 1','Nombre Archivo Descargable 1','URL archivo descargable 1','URL Archivo Descargable 1','URL archivo descargable','URL Archivo Descargable','URL botón','URL Boton','Manual de uso URL']);
     const botonUrl2 = get(row, ['Nombre archivo descargable 2','Nombre Archivo Descargable 2','URL archivo descargable 2','URL Archivo Descargable 2']);
-    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
+    const botonUrl3 = get(row, ['Nombre archivo descargable 3','Nombre Archivo Descargable 3','Mombre archivo descargable 3','Mombre Archivo Descargable 3','URL archivo descargable 3','URL Archivo Descargable 3']);
+    const botonUrl4 = get(row, ['Nombre archivo descargable 4','Nombre Archivo Descargable 4','Mombre archivo descargable 4','Mombre Archivo Descargable 4','URL archivo descargable 4','URL Archivo Descargable 4']);
     
     const iconos = pickIconValues(row);
 const cta = metaDescripcion.trim(); // sin fallback
@@ -3172,7 +3174,7 @@ const cta = metaDescripcion.trim(); // sin fallback
     
     const difGroups = parisDifRender(index, true);
     const hayImagenDiferenciadora = parisDifList(index).length > 0;
-    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3]);
+    botonHTML = buildManualesChip(botonTexto, [botonUrl1, botonUrl2, botonUrl3, botonUrl4]);
 
     html += `<div class='paris-ficha-card' data-quality-sku-index='${index}' style='margin-bottom:25px; background:#fff; padding: clamp(14px, 2vw, 22px); border:1px solid #eef2f6; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden;'>
 <div style='display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;'>
